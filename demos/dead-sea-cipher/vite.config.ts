@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/dead-sea-cipher/',
+  // Use relative asset paths so the production bundle works on GitHub Pages
+  // regardless of the repository name or deployment subdirectory.
+  base: './',
   build: {
     outDir: 'dist',
     target: 'es2020',
