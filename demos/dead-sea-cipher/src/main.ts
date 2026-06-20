@@ -462,7 +462,7 @@ function buildOTPPanel(): string {
         </div>
         <div class="io-group">
           <label id="otp-key-label">Key (hex)</label>
-          <div class="output" id="otp-key" aria-labelledby="otp-key-label" style="font-size:0.75rem">—</div>
+          <div class="output" id="otp-key" role="status" aria-live="polite" aria-labelledby="otp-key-label" style="font-size:0.75rem">—</div>
         </div>
       </div>
       <button class="action-btn" id="otp-gen-key">Generate Random Key</button>

@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Interactive demo walking 2,600 years of cryptographic history — from Atbash (~600 BCE) to AES-256-GCM (2001 CE).",
+  "engines": {
+    "node": ">=20"
+  },
   "license": "MIT",
   "homepage": "https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/",
   "repository": {
