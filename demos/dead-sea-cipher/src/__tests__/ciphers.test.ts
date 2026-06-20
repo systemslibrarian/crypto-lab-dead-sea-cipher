@@ -6,6 +6,7 @@ import { generateOTPKey, otpEncrypt, otpDecrypt, otpKeyReuseAttack, textToBytes,
 import { letterFrequency, indexOfCoincidence, chiSquaredFitness } from '../analysis/frequency.ts';
 import { kasiskiExamination } from '../analysis/kasiski.ts';
 import { crackCaesar } from '../analysis/caesar-crack.ts';
+import { aesEncrypt, aesDecrypt, aesVerifyIntegrity, tamperWithCiphertext } from '../ciphers/aes.ts';
 
 describe('Atbash cipher', () => {
   it('encrypts BABEL to YZYVO (latin)', () => {
@@ -189,5 +190,43 @@ describe('Caesar cracking', () => {
   it('returns all 26 decryptions', () => {
     const result = crackCaesar('HELLO');
     expect(result.allDecryptions).toHaveLength(26);
+  });
+});
+
+describe('AES-256-GCM', () => {
+  const passphrase = 'correct horse battery staple';
+  const message = 'The arc of cryptography bends toward authenticated encryption.';
+
+  it('round-trips encrypt → decrypt', async () => {
+    const payload = await aesEncrypt(message, passphrase);
+    const decrypted = await aesDecrypt(payload, passphrase);
+    expect(decrypted).toBe(message);
+  });
+
+  it('produces a fresh random IV and salt per encryption', async () => {
+    const a = await aesEncrypt(message, passphrase);
+    const b = await aesEncrypt(message, passphrase);
+    // Same plaintext + passphrase, but unique IV/salt => different ciphertext.
+    expect(a.iv).not.toBe(b.iv);
+    expect(a.salt).not.toBe(b.salt);
+    expect(a.ciphertext).not.toBe(b.ciphertext);
+  });
+
+  it('fails to decrypt with the wrong passphrase', async () => {
+    const payload = await aesEncrypt(message, passphrase);
+    await expect(aesDecrypt(payload, 'wrong passphrase')).rejects.toThrow();
+  });
+
+  it('verifies integrity of an untampered payload', async () => {
+    const payload = await aesEncrypt(message, passphrase);
+    expect(await aesVerifyIntegrity(payload, passphrase)).toBe(true);
+  });
+
+  it('detects tampering: a single flipped bit fails the GCM auth tag', async () => {
+    const payload = await aesEncrypt(message, passphrase);
+    const tampered = tamperWithCiphertext(payload);
+    expect(tampered.ciphertext).not.toBe(payload.ciphertext);
+    expect(await aesVerifyIntegrity(tampered, passphrase)).toBe(false);
+    await expect(aesDecrypt(tampered, passphrase)).rejects.toThrow();
   });
 });

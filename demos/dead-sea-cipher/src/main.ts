@@ -13,6 +13,12 @@ import { SCRIPTURE_REFERENCES, ERAS, FULL_ARC_REFLECTION, LESSONS_MAP } from './
 const app = document.getElementById('app')!;
 const themeRoot = document.documentElement;
 
+// The era tabs, in timeline order, plus the synthesizing "Full Arc" view.
+const TABS: Array<{ id: string; name: string; year: string }> = [
+  ...ERAS.map(e => ({ id: e.id, name: e.name, year: e.year })),
+  { id: 'full-arc', name: 'Full Arc', year: '2,600 yrs' },
+];
+
 function getTheme(): 'dark' | 'light' {
   return themeRoot.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
@@ -51,19 +57,25 @@ function buildApp(): void {
       <div class="arc-subtitle">Atbash (~600 BCE) → AES-256-GCM (2001 CE)</div>
     </header>
 
-    <nav class="timeline-nav">
-      ${ERAS.map(e => `<button data-era="${e.id}" class="${e.id === 'atbash' ? 'active' : ''}">
-        ${e.name}<span class="tab-year">${e.year}</span>
+    <nav class="timeline-nav" role="tablist" aria-label="Cryptographic eras">
+      ${TABS.map((t, i) => `<button
+        role="tab"
+        id="tab-${t.id}"
+        data-era="${t.id}"
+        aria-controls="panel-${t.id}"
+        aria-selected="${i === 0 ? 'true' : 'false'}"
+        tabindex="${i === 0 ? '0' : '-1'}"
+        class="${i === 0 ? 'active' : ''}">
+        ${t.name}<span class="tab-year">${t.year}</span>
       </button>`).join('')}
-      <button data-era="full-arc" class="">Full Arc<span class="tab-year">2,600 yrs</span></button>
     </nav>
 
-    <div id="panel-atbash" class="era-panel active">${buildAtbashPanel()}</div>
-    <div id="panel-caesar" class="era-panel">${buildCaesarPanel()}</div>
-    <div id="panel-vigenere" class="era-panel">${buildVigenerePanel()}</div>
-    <div id="panel-otp" class="era-panel">${buildOTPPanel()}</div>
-    <div id="panel-aes" class="era-panel">${buildAESPanel()}</div>
-    <div id="panel-full-arc" class="era-panel">${buildFullArcPanel()}</div>
+    <div id="panel-atbash" class="era-panel active" role="tabpanel" aria-labelledby="tab-atbash" tabindex="0">${buildAtbashPanel()}</div>
+    <div id="panel-caesar" class="era-panel" role="tabpanel" aria-labelledby="tab-caesar" tabindex="0">${buildCaesarPanel()}</div>
+    <div id="panel-vigenere" class="era-panel" role="tabpanel" aria-labelledby="tab-vigenere" tabindex="0">${buildVigenerePanel()}</div>
+    <div id="panel-otp" class="era-panel" role="tabpanel" aria-labelledby="tab-otp" tabindex="0">${buildOTPPanel()}</div>
+    <div id="panel-aes" class="era-panel" role="tabpanel" aria-labelledby="tab-aes" tabindex="0">${buildAESPanel()}</div>
+    <div id="panel-full-arc" class="era-panel" role="tabpanel" aria-labelledby="tab-full-arc" tabindex="0">${buildFullArcPanel()}</div>
   `;
 
   initThemeToggle();
@@ -75,16 +87,37 @@ function buildApp(): void {
   initAES();
 }
 
-// ─── Navigation ───
+// ─── Navigation (ARIA tabs pattern) ───
 function initNavigation(): void {
-  const buttons = app.querySelectorAll<HTMLButtonElement>('.timeline-nav button');
-  buttons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      buttons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      app.querySelectorAll('.era-panel').forEach(p => p.classList.remove('active'));
-      const target = btn.dataset.era!;
-      document.getElementById(`panel-${target}`)!.classList.add('active');
+  const tabs = Array.from(app.querySelectorAll<HTMLButtonElement>('.timeline-nav button'));
+
+  function selectTab(tab: HTMLButtonElement, moveFocus = true): void {
+    tabs.forEach(t => {
+      const selected = t === tab;
+      t.classList.toggle('active', selected);
+      t.setAttribute('aria-selected', String(selected));
+      t.tabIndex = selected ? 0 : -1;
+    });
+    app.querySelectorAll('.era-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`panel-${tab.dataset.era!}`)!.classList.add('active');
+    if (moveFocus) tab.focus();
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => selectTab(tab, false));
+    tab.addEventListener('keydown', e => {
+      let next = -1;
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown': next = (i + 1) % tabs.length; break;
+        case 'ArrowLeft':
+        case 'ArrowUp': next = (i - 1 + tabs.length) % tabs.length; break;
+        case 'Home': next = 0; break;
+        case 'End': next = tabs.length - 1; break;
+        default: return;
+      }
+      e.preventDefault();
+      selectTab(tabs[next]);
     });
   });
 }
@@ -104,9 +137,9 @@ function buildAtbashPanel(): string {
       <p class="scripture-text">"${sr.jeremiah_25_26.english}"</p>
       <span class="scripture-ref">— ${sr.jeremiah_25_26.reference}</span>
       <div style="margin-top:0.75rem">
-        <span>Encoded: </span><span class="hebrew-display"><span class="hebrew">${sr.jeremiah_25_26.hebrew_encoded}</span></span>
+        <span>Encoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.jeremiah_25_26.hebrew_encoded}</span></span>
         <span style="margin:0 0.5rem">→</span>
-        <span>Decoded: </span><span class="hebrew-display"><span class="hebrew">${sr.jeremiah_25_26.hebrew_decoded}</span></span>
+        <span>Decoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.jeremiah_25_26.hebrew_decoded}</span></span>
         <span style="margin-left:0.5rem;color:var(--text-muted)">(${sr.jeremiah_25_26.encoded_word} → ${sr.jeremiah_25_26.decoded_word})</span>
       </div>
       <p class="note">${sr.jeremiah_25_26.note}</p>
@@ -117,9 +150,9 @@ function buildAtbashPanel(): string {
       <p class="scripture-text">"${sr.jeremiah_51_41.english}"</p>
       <span class="scripture-ref">— ${sr.jeremiah_51_41.reference}</span>
       <div style="margin-top:0.75rem">
-        <span>Encoded: </span><span class="hebrew-display"><span class="hebrew">${sr.jeremiah_51_41.hebrew_encoded}</span></span>
+        <span>Encoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.jeremiah_51_41.hebrew_encoded}</span></span>
         <span style="margin:0 0.5rem">→</span>
-        <span>Decoded: </span><span class="hebrew-display"><span class="hebrew">${sr.jeremiah_51_41.hebrew_decoded}</span></span>
+        <span>Decoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.jeremiah_51_41.hebrew_decoded}</span></span>
       </div>
       <p class="note">${sr.jeremiah_51_41.note}</p>
     </div>
@@ -129,9 +162,9 @@ function buildAtbashPanel(): string {
       <p class="scripture-text">"${sr.lev_kamai.english}"</p>
       <span class="scripture-ref">— ${sr.lev_kamai.reference}</span>
       <div style="margin-top:0.75rem">
-        <span>Encoded: </span><span class="hebrew-display"><span class="hebrew">${sr.lev_kamai.hebrew_encoded}</span></span>
+        <span>Encoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.lev_kamai.hebrew_encoded}</span></span>
         <span style="margin:0 0.5rem">→</span>
-        <span>Decoded: </span><span class="hebrew-display"><span class="hebrew">${sr.lev_kamai.hebrew_decoded}</span></span>
+        <span>Decoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.lev_kamai.hebrew_decoded}</span></span>
         <span style="margin-left:0.5rem;color:var(--text-muted)">(${sr.lev_kamai.encoded_word} → ${sr.lev_kamai.decoded_word})</span>
       </div>
       <p class="note">${sr.lev_kamai.note}</p>
@@ -139,10 +172,12 @@ function buildAtbashPanel(): string {
 
     <div class="card">
       <h3>Hebrew Atbash Mapping</h3>
-      <table class="mapping-table" id="atbash-hebrew-table">
-        <tr><th>Letter</th>${HEBREW_SCRIPT.split('').map(c => `<td class="hebrew-cell">${c}</td>`).join('')}</tr>
-        <tr><th>Atbash</th>${HEBREW_SCRIPT_REVERSED.split('').map(c => `<td class="hebrew-cell">${c}</td>`).join('')}</tr>
-      </table>
+      <div class="table-scroll">
+        <table class="mapping-table" id="atbash-hebrew-table">
+          <tr><th scope="row">Letter</th>${HEBREW_SCRIPT.split('').map(c => `<td class="hebrew-cell" lang="he">${c}</td>`).join('')}</tr>
+          <tr><th scope="row">Atbash</th>${HEBREW_SCRIPT_REVERSED.split('').map(c => `<td class="hebrew-cell" lang="he">${c}</td>`).join('')}</tr>
+        </table>
+      </div>
     </div>
 
     <div class="card">
@@ -150,22 +185,22 @@ function buildAtbashPanel(): string {
       <button class="action-btn" id="atbash-load-jeremiah">Load Jeremiah 25:26 ("BABEL")</button>
       <div class="cipher-io">
         <div class="io-group">
-          <label>Plaintext (Latin)</label>
+          <label for="atbash-input">Plaintext (Latin)</label>
           <textarea id="atbash-input" placeholder="Type plaintext here...">BABEL</textarea>
         </div>
         <div class="io-group">
-          <label>Atbash Output</label>
-          <div class="output" id="atbash-output">YZYVO</div>
+          <label id="atbash-output-label">Atbash Output</label>
+          <div class="output" id="atbash-output" role="status" aria-live="polite" aria-labelledby="atbash-output-label">YZYVO</div>
         </div>
       </div>
       <div class="cipher-io" style="margin-top:0.5rem">
         <div class="io-group">
-          <label>Hebrew Input</label>
-          <textarea id="atbash-hebrew-input" dir="rtl" class="hebrew" placeholder="Type Hebrew here..." style="font-size:1.2rem">בבל</textarea>
+          <label for="atbash-hebrew-input">Hebrew Input</label>
+          <textarea id="atbash-hebrew-input" dir="rtl" lang="he" class="hebrew" placeholder="Type Hebrew here..." style="font-size:1.2rem">בבל</textarea>
         </div>
         <div class="io-group">
-          <label>Hebrew Atbash Output</label>
-          <div class="output hebrew" id="atbash-hebrew-output" dir="rtl" style="font-size:1.2rem">ששך</div>
+          <label id="atbash-hebrew-output-label">Hebrew Atbash Output</label>
+          <div class="output hebrew" id="atbash-hebrew-output" dir="rtl" lang="he" role="status" aria-live="polite" aria-labelledby="atbash-hebrew-output-label" style="font-size:1.2rem">ששך</div>
         </div>
       </div>
     </div>
@@ -214,18 +249,18 @@ function buildCaesarPanel(): string {
     <div class="card">
       <h3>Live Cipher</h3>
       <div class="slider-group">
-        <label>Shift:</label>
-        <input type="range" id="caesar-shift" min="1" max="25" value="3">
+        <label for="caesar-shift">Shift:</label>
+        <input type="range" id="caesar-shift" min="1" max="25" value="3" aria-describedby="caesar-shift-display">
         <span class="shift-display" id="caesar-shift-display">3</span>
       </div>
       <div class="cipher-io">
         <div class="io-group">
-          <label>Plaintext</label>
+          <label for="caesar-input">Plaintext</label>
           <textarea id="caesar-input" placeholder="Type plaintext here...">ATTACK AT DAWN</textarea>
         </div>
         <div class="io-group">
-          <label>Ciphertext</label>
-          <div class="output" id="caesar-output">DWWDFN DW GDZQ</div>
+          <label id="caesar-output-label">Ciphertext</label>
+          <div class="output" id="caesar-output" role="status" aria-live="polite" aria-labelledby="caesar-output-label">DWWDFN DW GDZQ</div>
         </div>
       </div>
       <p class="note">Caesar used a shift of 3, as documented by Suetonius in <em>The Twelve Caesars</em>, Chapter 56.</p>
@@ -332,17 +367,17 @@ function buildVigenerePanel(): string {
     <div class="card">
       <h3>Live Cipher</h3>
       <div class="io-group" style="margin-bottom:0.5rem">
-        <label>Keyword</label>
+        <label for="vig-key">Keyword</label>
         <input type="text" id="vig-key" value="LEMON" style="max-width:300px">
       </div>
       <div class="cipher-io">
         <div class="io-group">
-          <label>Plaintext</label>
+          <label for="vig-input">Plaintext</label>
           <textarea id="vig-input" placeholder="Type plaintext here...">ATTACKATDAWN</textarea>
         </div>
         <div class="io-group">
-          <label>Ciphertext</label>
-          <div class="output" id="vig-output">LXFOPVEFRNHR</div>
+          <label id="vig-output-label">Ciphertext</label>
+          <div class="output" id="vig-output" role="status" aria-live="polite" aria-labelledby="vig-output-label">LXFOPVEFRNHR</div>
         </div>
       </div>
       <div class="info-row">
@@ -422,24 +457,24 @@ function buildOTPPanel(): string {
       <h3>Live XOR Encryption</h3>
       <div class="cipher-io">
         <div class="io-group">
-          <label>Plaintext</label>
+          <label for="otp-input">Plaintext</label>
           <textarea id="otp-input" placeholder="Type plaintext here...">HELLO WORLD</textarea>
         </div>
         <div class="io-group">
-          <label>Key (hex)</label>
-          <div class="output" id="otp-key" style="font-size:0.75rem">—</div>
+          <label id="otp-key-label">Key (hex)</label>
+          <div class="output" id="otp-key" aria-labelledby="otp-key-label" style="font-size:0.75rem">—</div>
         </div>
       </div>
       <button class="action-btn" id="otp-gen-key">Generate Random Key</button>
       <button class="action-btn" id="otp-encrypt-btn">Encrypt</button>
       <div class="cipher-io" style="margin-top:0.5rem">
         <div class="io-group">
-          <label>Ciphertext (hex)</label>
-          <div class="output" id="otp-ciphertext" style="font-size:0.75rem">—</div>
+          <label id="otp-ciphertext-label">Ciphertext (hex)</label>
+          <div class="output" id="otp-ciphertext" role="status" aria-live="polite" aria-labelledby="otp-ciphertext-label" style="font-size:0.75rem">—</div>
         </div>
         <div class="io-group">
-          <label>Decrypted</label>
-          <div class="output" id="otp-decrypted">—</div>
+          <label id="otp-decrypted-label">Decrypted</label>
+          <div class="output" id="otp-decrypted" role="status" aria-live="polite" aria-labelledby="otp-decrypted-label">—</div>
         </div>
       </div>
     </div>
@@ -461,7 +496,7 @@ function buildOTPPanel(): string {
           <h3>Crib Dragging</h3>
           <p style="font-size:0.85rem;margin-bottom:0.5rem">If you guess one word of Message 1, you can recover the corresponding bytes of Message 2.</p>
           <div class="io-group" style="max-width:300px">
-            <label>Guess word at position 0</label>
+            <label for="otp-crib-input">Guess word at position 0</label>
             <input type="text" id="otp-crib-input" value="THE" style="max-width:200px">
           </div>
           <button class="action-btn" id="otp-crib-btn">Apply Crib</button>
@@ -582,11 +617,11 @@ function buildAESPanel(): string {
       <h3>Live AES-256-GCM Encryption</h3>
       <div class="cipher-io">
         <div class="io-group">
-          <label>Passphrase</label>
+          <label for="aes-passphrase">Passphrase</label>
           <input type="password" id="aes-passphrase" value="dead-sea-cipher-demo" placeholder="Enter passphrase...">
         </div>
         <div class="io-group">
-          <label>Plaintext</label>
+          <label for="aes-input">Plaintext</label>
           <textarea id="aes-input" placeholder="Type plaintext here...">The arc of cryptography bends toward authenticated encryption.</textarea>
         </div>
       </div>
@@ -608,7 +643,7 @@ function buildAESPanel(): string {
     <div class="card">
       <h3>Decrypt</h3>
       <button class="action-btn" id="aes-decrypt-btn">Decrypt</button>
-      <div class="output" id="aes-decrypted" style="margin-top:0.5rem">—</div>
+      <div class="output" id="aes-decrypted" role="status" aria-live="polite" aria-label="Decrypted output" style="margin-top:0.5rem">—</div>
     </div>
 
     <div class="card attack-card">
@@ -616,7 +651,7 @@ function buildAESPanel(): string {
       <p style="font-size:0.85rem;margin-bottom:0.5rem">GCM authentication tag covers the entire ciphertext. One changed bit causes complete verification failure.</p>
       <button class="action-btn danger" id="aes-tamper-btn">Tamper with Ciphertext (flip 1 bit)</button>
       <button class="action-btn" id="aes-verify-btn">Verify Integrity</button>
-      <div id="aes-verify-result"></div>
+      <div id="aes-verify-result" role="status" aria-live="polite"></div>
     </div>
 
     <div class="card fix-card">

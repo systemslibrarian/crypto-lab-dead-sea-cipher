@@ -8,12 +8,50 @@
         document.documentElement.setAttribute('data-theme', saved ?? 'dark');
       })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0a0a0f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f3ece4" media="(prefers-color-scheme: light)" />
+
     <title>Dead Sea Cipher — Cryptographic History from Atbash to AES</title>
+    <meta
+      name="description"
+      content="An interactive walk through 2,600 years of cryptographic history — from the Atbash cipher hidden in Jeremiah (~600 BCE) to AES-256-GCM (2001 CE). Every cipher has a live encoder and the attack that broke it."
+    />
+    <meta name="author" content="systemslibrarian" />
+    <link rel="canonical" href="https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dead Sea Cipher — from Atbash to AES-256-GCM" />
+    <meta
+      property="og:description"
+      content="2,600 years of cryptographic history in one page. Each cipher comes with a live encoder and the attack that broke it — Caesar brute force, Kasiski, OTP key reuse, GCM tamper detection."
+    />
+    <meta property="og:url" content="https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/" />
+    <meta property="og:image" content="https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Dead Sea Cipher — the arc of cryptographic history, Atbash to AES-256-GCM" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dead Sea Cipher — from Atbash to AES-256-GCM" />
+    <meta
+      name="twitter:description"
+      content="2,600 years of cryptographic history in one page — every cipher with a live encoder and the attack that broke it."
+    />
+    <meta name="twitter:image" content="https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/og-image.png" />
   </head>
   <body>
     <div id="app"></div>
+    <noscript>
+      <p style="max-width: 40rem; margin: 4rem auto; padding: 0 1.5rem; text-align: center; font-family: Georgia, serif;">
+        Dead Sea Cipher is an interactive cryptography demo that runs entirely in your browser.
+        Please enable JavaScript to explore the timeline from Atbash to AES-256-GCM.
+      </p>
+    </noscript>
     <footer style="text-align:center; padding: 1.5rem; font-size: 0.85rem; opacity: 0.7; margin-top: 2rem;">
       Whether you eat or drink or whatever you do, do it all for the glory of God. — 1 Corinthians 10:31
     </footer>

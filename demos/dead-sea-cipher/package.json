@@ -1,8 +1,15 @@
 {
   "name": "dead-sea-cipher",
+  "version": "1.0.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "description": "Interactive demo walking 2,600 years of cryptographic history — from Atbash (~600 BCE) to AES-256-GCM (2001 CE).",
+  "license": "MIT",
+  "homepage": "https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/systemslibrarian/crypto-lab-dead-sea-cipher.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -16,23 +23,5 @@
     "typescript": "~6.0.2",
     "vite": "^8.0.4",
     "vitest": "^4.1.2"
-  },
-  "description": "",
-  "main": "index.js",
-  "dependencies": {
-    "detect-libc": "^2.1.2",
-    "fdir": "^6.5.0",
-    "lightningcss": "^1.32.0",
-    "lightningcss-linux-x64-gnu": "^1.32.0",
-    "nanoid": "^3.3.11",
-    "picocolors": "^1.1.1",
-    "picomatch": "^4.0.4",
-    "postcss": "^8.5.8",
-    "rolldown": "^1.0.0-rc.12",
-    "source-map-js": "^1.2.1",
-    "tinyglobby": "^0.2.15"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  }
 }
