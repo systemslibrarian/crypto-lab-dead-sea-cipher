@@ -2,6 +2,10 @@
 
 A browser-based cryptographic history demo for the [crypto-compare](https://github.com/systemslibrarian/crypto-compare) portfolio. Walks the full arc of cryptographic history — from Atbash (~600 BCE) through AES-256-GCM (2001 CE).
 
+## Live Demo
+
+**[systemslibrarian.github.io/crypto-lab-dead-sea-cipher](https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/)**
+
 ## Historical & Classical Ciphers
 
 | Field | Value |
