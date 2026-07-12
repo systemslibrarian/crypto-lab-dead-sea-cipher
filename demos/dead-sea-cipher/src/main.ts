@@ -51,11 +51,18 @@ function initThemeToggle(): void {
 // ─── Build the full HTML ───
 function buildApp(): void {
   app.innerHTML = `
-    <header class="site-header">
-      <button id="theme-toggle" class="theme-toggle" type="button"></button>
-      <h1>Dead Sea Cipher</h1>
-      <div class="arc-subtitle">Atbash (~600 BCE) → AES-256-GCM (2001 CE)</div>
-    </header>
+    <button id="theme-toggle" class="theme-toggle" type="button"></button>
+    <div class="cl-hero">
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title">Dead Sea Cipher</h1>
+        <p class="cl-hero-sub">Atbash · Caesar · Vigenère · One-Time Pad · AES-256-GCM</p>
+        <p class="cl-hero-desc">Walk the arc of cryptographic history one era at a time — encrypt with each cipher live, then run the very attack that broke it.</p>
+      </div>
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">Every confidentiality scheme fails for a structural reason: tiny key space, frequency leakage, key reuse, no integrity. Each generation patches the last one's fatal flaw — and seeing the break is how you learn to trust the fix.</p>
+      </aside>
+    </div>
 
     <nav class="timeline-nav" role="tablist" aria-label="Cryptographic eras">
       ${TABS.map((t, i) => `<button
