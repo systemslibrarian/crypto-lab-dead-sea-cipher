@@ -5,7 +5,7 @@ import { vigenereEncrypt, vigenereDecrypt } from './ciphers/vigenere.ts';
 import { generateOTPKey, otpEncrypt, otpDecrypt, otpKeyReuseAttack, textToBytes, bytesToText, bytesToHex, hexToBytes } from './ciphers/otp.ts';
 import { aesEncrypt, aesDecrypt, aesVerifyIntegrity, tamperWithCiphertext } from './ciphers/aes.ts';
 import type { AESPayload } from './ciphers/aes.ts';
-import { letterFrequency, indexOfCoincidence } from './analysis/frequency.ts';
+import { letterFrequency, indexOfCoincidence, ENGLISH_FREQUENCIES } from './analysis/frequency.ts';
 import { kasiskiExamination } from './analysis/kasiski.ts';
 import { crackCaesar } from './analysis/caesar-crack.ts';
 import { SCRIPTURE_REFERENCES, ERAS, FULL_ARC_REFLECTION, LESSONS_MAP } from './content/scripture.ts';
@@ -138,6 +138,7 @@ function buildAtbashPanel(): string {
   return `
     <h2>Atbash — ${era.year}</h2>
     <p class="era-tagline">${era.tagline}</p>
+    <p class="why-today">Atbash matters because it exposes the flaw every substitution cipher inherits: swapping letters one-for-one hides <em>which</em> letter is which, but not <em>how often</em> each appears. That "frequency fingerprint" leak is the thread we follow all the way to Vigenère.</p>
 
     <div class="card scripture-card">
       <h3>Scripture: ${sr.jeremiah_25_26.reference}</h3>
@@ -212,9 +213,21 @@ function buildAtbashPanel(): string {
       </div>
     </div>
 
+    <div class="card">
+      <h3>Frequency Leakage Meter</h3>
+      <p class="note" style="margin-top:0;margin-bottom:0.6rem">Type in the Latin encoder above. Atbash is a fixed one-to-one swap, so the <strong>shape</strong> of the letter counts is untouched — only the labels move. The Index of Coincidence (chance two random letters match) is <em>identical</em> for plaintext and ciphertext, which is precisely why frequency analysis will later crack Caesar and substitution ciphers.</p>
+      <div class="ic-compare">
+        <div class="ic-cell"><span class="ic-cell-label">Plaintext IC</span><span class="ic-cell-value" id="atbash-ic-plain">—</span></div>
+        <div class="ic-cell"><span class="ic-cell-label">Atbash IC</span><span class="ic-cell-value" id="atbash-ic-cipher">—</span></div>
+        <div class="ic-cell"><span class="ic-cell-label">Verdict</span><span class="ic-cell-value" id="atbash-ic-verdict">—</span></div>
+      </div>
+      <p class="note" style="margin-top:0.5rem">Reference: English ≈ 0.065, random noise ≈ 0.038. An Atbash ciphertext that started as English stays near 0.065 — it leaks.</p>
+    </div>
+
     <div class="card flaw-card">
       <h3>Fatal Flaw</h3>
       <p>${era.fatalFlaw}</p>
+      <p class="note">Beyond the tiny key space, the deeper weakness Caesar <em>inherits</em> is above: the frequency fingerprint survives the swap. Adding keys (Caesar's 25 shifts) does not fix that — only Vigenère's multiple alphabets start to flatten it.</p>
     </div>
     <div class="card fix-card">
       <h3>What the Next Cipher Fixed</h3>
@@ -229,10 +242,32 @@ function initAtbash(): void {
   const hebrewInput = document.getElementById('atbash-hebrew-input') as HTMLTextAreaElement;
   const hebrewOutput = document.getElementById('atbash-hebrew-output')!;
   const loadBtn = document.getElementById('atbash-load-jeremiah')!;
+  const icPlain = document.getElementById('atbash-ic-plain')!;
+  const icCipher = document.getElementById('atbash-ic-cipher')!;
+  const icVerdict = document.getElementById('atbash-ic-verdict')!;
 
-  input.addEventListener('input', () => {
-    output.textContent = atbash(input.value, 'latin');
-  });
+  function updateLatin(): void {
+    const ct = atbash(input.value, 'latin');
+    output.textContent = ct;
+    const ip = indexOfCoincidence(input.value);
+    const ic = indexOfCoincidence(ct);
+    icPlain.textContent = ip > 0 ? ip.toFixed(4) : '—';
+    icCipher.textContent = ic > 0 ? ic.toFixed(4) : '—';
+    // The two ICs are mathematically equal for any bijective letter map.
+    if (ip > 0 && Math.abs(ip - ic) < 1e-9) {
+      icVerdict.textContent = 'IDENTICAL — leaks';
+      icVerdict.className = 'ic-cell-value leak';
+    } else if (ip > 0) {
+      icVerdict.textContent = 'differs';
+      icVerdict.className = 'ic-cell-value';
+    } else {
+      icVerdict.textContent = '—';
+      icVerdict.className = 'ic-cell-value';
+    }
+  }
+
+  input.addEventListener('input', updateLatin);
+  updateLatin();
 
   hebrewInput.addEventListener('input', () => {
     hebrewOutput.textContent = atbashHebrew(hebrewInput.value);
@@ -240,7 +275,7 @@ function initAtbash(): void {
 
   loadBtn.addEventListener('click', () => {
     input.value = 'BABEL';
-    output.textContent = atbash('BABEL', 'latin');
+    updateLatin();
   });
 }
 
@@ -252,6 +287,7 @@ function buildCaesarPanel(): string {
   return `
     <h2>Caesar Cipher — ${era.year}</h2>
     <p class="era-tagline">${era.tagline}</p>
+    <p class="why-today">Caesar shows why a small key is fatal — the same reason a 4-digit PIN is weak: if there are only a handful of keys, an attacker just tries them all.</p>
 
     <div class="card">
       <h3>Live Cipher</h3>
@@ -275,18 +311,26 @@ function buildCaesarPanel(): string {
 
     <div class="card">
       <h3>Frequency Analysis</h3>
-      <div class="freq-chart" id="caesar-freq-chart">
+      <p class="note" style="margin-top:0;margin-bottom:0.5rem">A Caesar shift just <em>slides</em> the whole alphabet. The faint dashed line is English's real letter frequencies; the solid bars are this ciphertext's. Break It below slides the bars back until the tallest one snaps onto <strong>E</strong> — that offset <em>is</em> the key.</p>
+      <div class="freq-chart" id="caesar-freq-chart" role="img" aria-label="Letter frequency histogram of the ciphertext, overlaid with the reference English distribution">
+        <div class="freq-ref-overlay" id="caesar-freq-ref" aria-hidden="true">${buildRefOverlay()}</div>
         ${buildFreqBars()}
+      </div>
+      <div class="freq-legend" aria-hidden="true">
+        <span class="legend-item"><span class="legend-swatch live"></span>ciphertext</span>
+        <span class="legend-item"><span class="legend-swatch ref"></span>English reference (peak at E)</span>
       </div>
       <div class="info-row">
         <span class="info-label">IC:</span>
         <span class="info-value" id="caesar-ic">—</span>
         <span class="note" style="margin:0 0 0 0.5rem">(English ≈ 0.065)</span>
       </div>
+      <p class="note" id="caesar-ic-def" style="margin-top:0.25rem"><strong>Index of Coincidence (IC)</strong> = the chance two letters picked at random from the text are the same. English clusters on E/T/A, so its IC ≈ 0.065; a Caesar shift just relabels letters without flattening the clusters, so the IC stays ≈ 0.065 — that leakage is exactly what frequency analysis exploits.</p>
     </div>
 
     <div class="card attack-card">
-      <h3>Break It — Brute Force</h3>
+      <h3>Break It — Frequency Alignment</h3>
+      <p class="note" style="margin-top:0;margin-bottom:0.5rem">Watch the histogram slide until its peak lands on E, then read the ranked candidates: the winner is the shift whose decryption best matches English letter statistics (lowest χ²).</p>
       <button class="action-btn" id="caesar-break-btn">Break It</button>
       <div id="caesar-break-time" class="note"></div>
       <div class="brute-force-list" id="caesar-brute-list" style="display:none"></div>
@@ -305,20 +349,48 @@ function buildCaesarPanel(): string {
 
 function buildFreqBars(): string {
   return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(l =>
-    `<div class="freq-bar"><div class="bar" data-letter="${l}" style="height:1px"></div><span class="bar-label">${l}</span></div>`
+    `<div class="freq-bar"><div class="bar" data-letter="${l}" style="height:1px"><span class="bar-peak" data-letter="${l}"></span></div><span class="bar-label">${l}</span></div>`
   ).join('');
 }
 
-function updateFreqChart(containerId: string, text: string): void {
+// Faint dashed silhouette of English letter frequencies, drawn behind the live bars.
+function buildRefOverlay(): string {
+  const maxEng = Math.max(...Object.values(ENGLISH_FREQUENCIES));
+  return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(l => {
+    const h = (ENGLISH_FREQUENCIES[l] / maxEng) * 90;
+    return `<div class="freq-ref-bar${l === 'E' ? ' is-e' : ''}" style="height:${h}px"></div>`;
+  }).join('');
+}
+
+// Returns the letter carrying the tallest bar (the cipher's frequency peak).
+function updateFreqChart(containerId: string, text: string): { peak: string | null } {
   const freq = letterFrequency(text);
   const maxPct = Math.max(...freq.map(f => f.percentage), 1);
   const container = document.getElementById(containerId)!;
+  let peak: string | null = null;
+  let peakPct = -1;
   freq.forEach(f => {
     const bar = container.querySelector(`.bar[data-letter="${f.letter}"]`) as HTMLElement;
     if (bar) {
       bar.style.height = `${(f.percentage / maxPct) * 90}px`;
+      bar.classList.remove('is-peak');
     }
+    if (f.percentage > peakPct && f.count > 0) { peakPct = f.percentage; peak = f.letter; }
   });
+  // Clear any stale peak markers.
+  container.querySelectorAll('.bar.is-peak').forEach(b => b.classList.remove('is-peak'));
+  return { peak };
+}
+
+// Mark which bar is the peak, labelling it (used after the alignment animation).
+function markPeakBar(containerId: string, letter: string, label: string): void {
+  const container = document.getElementById(containerId)!;
+  container.querySelectorAll('.bar.is-peak').forEach(b => b.classList.remove('is-peak'));
+  const bar = container.querySelector(`.bar[data-letter="${letter}"]`) as HTMLElement | null;
+  if (!bar) return;
+  bar.classList.add('is-peak');
+  const peakSpan = bar.querySelector('.bar-peak') as HTMLElement | null;
+  if (peakSpan) peakSpan.textContent = label;
 }
 
 function initCaesar(): void {
@@ -331,11 +403,17 @@ function initCaesar(): void {
   const breakTime = document.getElementById('caesar-break-time')!;
   const icDisplay = document.getElementById('caesar-ic')!;
 
+  const chart = document.getElementById('caesar-freq-chart')!;
+  const barsRow = () => Array.from(chart.querySelectorAll<HTMLElement>('.bar'));
+
   function update() {
     const s = parseInt(shift.value);
     shiftDisplay.textContent = String(s);
     const ct = caesarEncrypt(input.value, s);
     output.textContent = ct;
+    // Reset any alignment transform from a prior Break It run.
+    chart.classList.remove('aligned');
+    barsRow().forEach(b => { b.style.transform = ''; b.classList.remove('is-peak'); });
     updateFreqChart('caesar-freq-chart', ct);
     icDisplay.textContent = indexOfCoincidence(ct).toFixed(4);
   }
@@ -349,16 +427,46 @@ function initCaesar(): void {
     const start = performance.now();
     const result = crackCaesar(ct);
     const elapsed = (performance.now() - start).toFixed(2);
+    const { peak } = updateFreqChart('caesar-freq-chart', ct);
+
+    // ── Animate: slide every bar left by `likelyShift` columns so the tell-tale
+    // peak (the ciphertext's E, disguised as `peak`) lands on the E column. This
+    // makes "the shift that aligns the peaks" literally equal "the recovered key".
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const s = result.likelyShift;
+    const bars = barsRow();
+    // Column width in px (chart has 26 columns with 2px gaps over its width).
+    const chartWidth = chart.clientWidth;
+    const colWidth = chartWidth / 26;
+    chart.classList.add('aligned');
+    bars.forEach(b => {
+      const dx = -s * colWidth;
+      b.style.transform = reduceMotion ? `translateX(${dx}px)` : '';
+    });
+    if (!reduceMotion) {
+      // Force a frame, then apply the slide so the CSS transition animates it.
+      requestAnimationFrame(() => {
+        bars.forEach(b => { b.style.transform = `translateX(${-s * colWidth}px)`; });
+      });
+    }
+    // After the slide settles, label the peak now sitting over E.
+    const settle = reduceMotion ? 0 : 650;
+    window.setTimeout(() => {
+      if (peak) markPeakBar('caesar-freq-chart', peak, `${peak}→E`);
+    }, settle);
 
     bruteList.style.display = 'block';
-    bruteList.innerHTML = result.allDecryptions.map(d =>
+    // Candidates already sorted best-first by crackCaesar (lowest χ² = best English fit).
+    const bestScore = result.allDecryptions[0].score;
+    bruteList.innerHTML = result.allDecryptions.map((d, rank) =>
       `<div class="brute-force-item ${d.shift === result.likelyShift ? 'best' : ''}">
         <span class="shift-label">Shift ${d.shift.toString().padStart(2, ' ')}</span>
-        <span>${escapeHtml(d.text)}</span>
+        <span class="chi-score" title="chi-squared vs. English letter frequencies (lower is a better fit)">χ² ${d.score.toFixed(0).padStart(4, ' ')}${rank === 0 ? ' ✓' : ''}</span>
+        <span class="brute-text">${escapeHtml(d.text)}</span>
       </div>`
     ).join('');
 
-    breakTime.innerHTML = `Completed in <strong>${elapsed}ms</strong>. In 58 BCE, this required days of manual work.`;
+    breakTime.innerHTML = `Winner: <strong>shift ${s}</strong> (χ² ${bestScore.toFixed(0)}, the closest match to English). Solved in <strong>${elapsed}ms</strong> — in 58 BCE this took days of manual counting.`;
   });
 }
 
@@ -370,6 +478,7 @@ function buildVigenerePanel(): string {
   return `
     <h2>Vigenère Cipher — ${era.year}</h2>
     <p class="era-tagline">${era.tagline}</p>
+    <p class="why-today">Vigenère is why we don't reuse a short key over a long message: repeating the keyword every few letters is the same mistake as a Wi-Fi scheme reusing one keystream. Lengthen the key and the frequency leak flattens — but a <em>repeating</em> key still leaves a fingerprint Kasiski can find.</p>
 
     <div class="card">
       <h3>Live Cipher</h3>
@@ -393,13 +502,32 @@ function buildVigenerePanel(): string {
         <span class="info-label" style="margin-left:1rem">IC (cipher):</span>
         <span class="info-value" id="vig-ic-cipher">—</span>
       </div>
+      <div class="ic-meter" aria-hidden="true">
+        <div class="ic-meter-track">
+          <span class="ic-meter-tick random" style="left:0%">random ≈ 0.038</span>
+          <span class="ic-meter-tick english" style="left:100%">English ≈ 0.065</span>
+          <span class="ic-meter-needle" id="vig-ic-needle" style="left:100%"></span>
+        </div>
+      </div>
+      <p class="note" id="vig-ic-story" style="margin-top:0.4rem">Frequency leakage meter: the needle shows where the ciphertext's IC sits between random noise (0.038) and plain English (0.065). Lengthen the keyword and watch the needle slide left toward random — each key letter spreads one plaintext letter across more ciphertext positions, flattening the fingerprint.</p>
       <p class="note"><strong>Attribution:</strong> Actually invented by Giovan Battista Bellaso in 1553 (<em>La Cifra del. Sig. Giovan Battista Bellaso</em>). Blaise de Vigenère described a different autokey cipher. The misattribution persists to this day.</p>
     </div>
 
     <div class="card attack-card">
       <h3>Kasiski Examination</h3>
+      <p class="note" style="margin-top:0;margin-bottom:0.5rem">Kasiski's insight: when the same plaintext lines up with the same slice of the repeating key, you get an <em>identical</em> ciphertext chunk. So the distance between two matching chunks is a multiple of the key length. Find several such gaps, take their common factor — that's the key length.</p>
       <button class="action-btn" id="vig-kasiski-btn">Run Kasiski Attack</button>
-      <div class="kasiski-output" id="vig-kasiski-output" style="display:none"></div>
+      <div id="vig-kasiski-viz" style="display:none">
+        <div class="kasiski-strip-wrap" tabindex="0" role="region" aria-label="Ciphertext with repeated sequences highlighted and their spacings bracketed">
+          <div class="kasiski-strip" id="vig-kasiski-strip"></div>
+        </div>
+        <p class="kasiski-hint note" id="vig-kasiski-hint">Hover or focus a highlighted repeat to see its spacing.</p>
+        <div class="kasiski-factors" id="vig-kasiski-factors"></div>
+      </div>
+      <details class="kasiski-details">
+        <summary>Full step-by-step report</summary>
+        <div class="kasiski-output" id="vig-kasiski-output" tabindex="0" role="region" aria-label="Kasiski examination step-by-step text report"></div>
+      </details>
     </div>
 
     <div class="card flaw-card">
@@ -422,13 +550,18 @@ function initVigenere(): void {
   const kasiskiOutput = document.getElementById('vig-kasiski-output')!;
   const icPlain = document.getElementById('vig-ic-plain')!;
   const icCipher = document.getElementById('vig-ic-cipher')!;
+  const icNeedle = document.getElementById('vig-ic-needle') as HTMLElement;
 
   function update() {
     try {
       const ct = vigenereEncrypt(input.value, keyInput.value);
       output.textContent = ct;
       icPlain.textContent = indexOfCoincidence(input.value).toFixed(4);
-      icCipher.textContent = indexOfCoincidence(ct).toFixed(4);
+      const icC = indexOfCoincidence(ct);
+      icCipher.textContent = icC.toFixed(4);
+      // Map IC in [0.038, 0.065] onto the meter [0%, 100%], clamped.
+      const pct = Math.max(0, Math.min(100, ((icC - 0.038) / (0.065 - 0.038)) * 100));
+      icNeedle.style.left = `${pct}%`;
     } catch {
       output.textContent = '(enter a valid key)';
     }
@@ -438,17 +571,127 @@ function initVigenere(): void {
   keyInput.addEventListener('input', update);
   update();
 
+  const kasiskiViz = document.getElementById('vig-kasiski-viz')!;
+  const kasiskiStrip = document.getElementById('vig-kasiski-strip')!;
+  const kasiskiHint = document.getElementById('vig-kasiski-hint')!;
+  const kasiskiFactors = document.getElementById('vig-kasiski-factors')!;
+
   kasiskiBtn.addEventListener('click', () => {
     const ct = output.textContent || '';
-    if (ct.length < 20) {
-      kasiskiOutput.style.display = 'block';
-      kasiskiOutput.textContent = 'Need at least 20 characters of ciphertext for Kasiski analysis. Try a longer plaintext.';
+    const clean = ct.toUpperCase().replace(/[^A-Z]/g, '');
+    if (clean.length < 20) {
+      kasiskiViz.style.display = 'block';
+      kasiskiStrip.innerHTML = '';
+      kasiskiHint.textContent = 'Need at least 20 characters of ciphertext for Kasiski analysis. Try a longer plaintext.';
+      kasiskiFactors.innerHTML = '';
+      kasiskiOutput.textContent = '';
       return;
     }
     const result = kasiskiExamination(ct);
-    kasiskiOutput.style.display = 'block';
     kasiskiOutput.textContent = result.explanation;
+    kasiskiViz.style.display = 'block';
+    renderKasiskiViz(clean, result, kasiskiStrip, kasiskiHint, kasiskiFactors);
   });
+}
+
+// Small palette used to color-code distinct repeated sequences in the strip.
+const KASISKI_COLORS = ['k0', 'k1', 'k2', 'k3', 'k4', 'k5'];
+
+function renderKasiskiViz(
+  clean: string,
+  result: ReturnType<typeof kasiskiExamination>,
+  strip: HTMLElement,
+  hint: HTMLElement,
+  factors: HTMLElement,
+): void {
+  // Pick the most useful repeats to visualize: distinct sequences, each with a
+  // gap, capped so the strip stays legible. Each occurrence gets a color class.
+  const chosen = result.repeatedSequences
+    .filter(r => r.positions.length >= 2)
+    .slice(0, KASISKI_COLORS.length);
+
+  // Map each character index → color class (first two occurrences of each repeat).
+  const charClass: (string | null)[] = new Array(clean.length).fill(null);
+  const brackets: Array<{ start: number; end: number; spacing: number; cls: string; seq: string }> = [];
+  chosen.forEach((r, ci) => {
+    const cls = KASISKI_COLORS[ci];
+    const [p0, p1] = r.positions;
+    for (const p of r.positions) {
+      for (let i = 0; i < r.sequence.length; i++) {
+        if (p + i < clean.length) charClass[p + i] = cls;
+      }
+    }
+    brackets.push({ start: p0, end: p1 + r.sequence.length - 1, spacing: r.spacing, cls, seq: r.sequence });
+  });
+
+  // Render the ciphertext as individual spans so we can position brackets under them.
+  const cells = clean.split('').map((ch, i) => {
+    const cls = charClass[i];
+    return `<span class="k-char${cls ? ' ' + cls + ' k-hit' : ''}" data-idx="${i}"${cls ? ` data-seq-cls="${cls}"` : ''}>${ch}</span>`;
+  }).join('');
+
+  // Build spacing brackets as an overlay list; positioned via char index ratios.
+  const total = clean.length;
+  const bracketEls = brackets.map((b, i) => {
+    const leftPct = (b.start / total) * 100;
+    const widthPct = ((b.end - b.start + 1) / total) * 100;
+    return `<div class="k-bracket ${b.cls}" data-seq-cls="${b.cls}" style="left:${leftPct}%;width:${widthPct}%;top:${i * 1.35}rem">
+      <span class="k-bracket-line"></span>
+      <span class="k-bracket-label">"${b.seq}" · gap ${b.spacing}</span>
+    </div>`;
+  }).join('');
+
+  const bracketHeight = brackets.length * 1.35 + 0.5;
+  strip.innerHTML = `
+    <div class="k-text">${cells}</div>
+    <div class="k-brackets" style="height:${bracketHeight}rem">${bracketEls}</div>
+  `;
+
+  // Hover/focus a highlighted char to spotlight its repeat + matching bracket.
+  const chars = Array.from(strip.querySelectorAll<HTMLElement>('.k-char'));
+  const bracketNodes = Array.from(strip.querySelectorAll<HTMLElement>('.k-bracket'));
+  function spotlight(cls: string | null): void {
+    chars.forEach(c => c.classList.toggle('k-dim', cls !== null && c.dataset.seqCls !== cls));
+    bracketNodes.forEach(b => b.classList.toggle('k-active', b.dataset.seqCls === cls));
+    const b = brackets.find(x => x.cls === cls);
+    hint.textContent = b
+      ? `"${b.seq}" repeats with a gap of ${b.spacing} letters — the key length must divide ${b.spacing}.`
+      : 'Hover or focus a highlighted repeat to see its spacing.';
+  }
+  chars.forEach(c => {
+    const cls = c.dataset.seqCls ?? null;
+    if (!cls) return;
+    c.tabIndex = 0;
+    c.addEventListener('mouseenter', () => spotlight(cls));
+    c.addEventListener('mouseleave', () => spotlight(null));
+    c.addEventListener('focus', () => spotlight(cls));
+    c.addEventListener('blur', () => spotlight(null));
+  });
+
+  // Factoring: show each gap collapsing to the common factor = key length.
+  const gaps = brackets.map(b => b.spacing);
+  const keyLen = result.probableKeyLength;
+  const factorRows = brackets.map(b => {
+    const facs: number[] = [];
+    for (let f = 2; f <= Math.min(b.spacing, 20); f++) if (b.spacing % f === 0) facs.push(f);
+    return `<div class="k-factor-row">
+      <span class="k-factor-gap ${b.cls}">"${b.seq}" gap ${b.spacing}</span>
+      <span class="k-factor-eq">= factors</span>
+      <span class="k-factor-list">${facs.map(f => `<span class="k-factor${f === keyLen ? ' k-common' : ''}">${f}</span>`).join('')}</span>
+    </div>`;
+  }).join('');
+
+  factors.innerHTML = `
+    <p class="note" style="margin:0.75rem 0 0.4rem">Every gap shares a common factor. That shared factor is the key length:</p>
+    ${factorRows}
+    <div class="k-keylen">Common factor across the gaps → <strong>key length = ${keyLen}</strong>${gaps.length ? '' : ' (add more ciphertext for stronger evidence)'}. Each of the ${keyLen} columns is then a simple Caesar shift, cracked by frequency analysis — recovering the key <strong>"${result.repeatedSequences.length ? recoveredKeyFrom(result) : '…'}"</strong>.</div>
+  `;
+}
+
+// Pull the recovered key out of the text explanation (kept spec-accurate in kasiski.ts).
+function recoveredKeyFrom(result: ReturnType<typeof kasiskiExamination>): string {
+  const m = result.explanation.match(/RECOVERED KEY: "([A-Z]+)"/);
+  return m ? m[1] : '?';
 }
 
 // ═══════════════════════════════════════
@@ -459,6 +702,7 @@ function buildOTPPanel(): string {
   return `
     <h2>One-Time Pad — ${era.year}</h2>
     <p class="era-tagline">${era.tagline}</p>
+    <p class="why-today">The OTP is unbreakable on paper, but reuse the pad once and it collapses — the exact bug behind the "two-time pad" breaks of real systems (Venona, some Wi-Fi/PPTP flaws). The lesson: a key you use twice is worse than a shorter key you use once.</p>
 
     <div class="card">
       <h3>Live XOR Encryption</h3>
@@ -491,23 +735,22 @@ function buildOTPPanel(): string {
       <p style="margin-bottom:0.75rem;font-size:0.85rem">When the same key encrypts two messages, XOR of the ciphertexts reveals XOR of the plaintexts — eliminating the key entirely.</p>
       <button class="action-btn" id="otp-reuse-btn">Simulate Key Reuse</button>
       <div id="otp-reuse-output" style="display:none">
-        <div class="info-row"><span class="info-label">Message 1:</span><span class="info-value" id="otp-reuse-p1"></span></div>
-        <div class="info-row"><span class="info-label">Message 2:</span><span class="info-value" id="otp-reuse-p2"></span></div>
-        <div class="info-row"><span class="info-label">Shared Key:</span><span class="info-value" id="otp-reuse-key" style="font-size:0.7rem"></span></div>
-        <div class="info-row"><span class="info-label">C1:</span><span class="info-value" id="otp-reuse-c1" style="font-size:0.7rem"></span></div>
-        <div class="info-row"><span class="info-label">C2:</span><span class="info-value" id="otp-reuse-c2" style="font-size:0.7rem"></span></div>
-        <div class="info-row"><span class="info-label">C1 ⊕ C2:</span><span class="info-value" id="otp-reuse-xor" style="font-size:0.7rem"></span></div>
-        <div class="info-row"><span class="info-label">P1 ⊕ P2:</span><span class="info-value" id="otp-reuse-pxor" style="font-size:0.7rem"></span></div>
+        <p class="note" style="margin-top:0.75rem">Each column below is one byte position. Because C = P ⊕ K, XORing the two ciphertexts cancels the shared key: <strong>C1 ⊕ C2 = (P1⊕K) ⊕ (P2⊕K) = P1 ⊕ P2</strong>. The key is gone — the two highlighted rows are byte-for-byte equal.</p>
+        <div class="xor-grid-wrap" tabindex="0" role="region" aria-label="Byte-aligned XOR grid showing the key-reuse identity C1 XOR C2 equals P1 XOR P2">
+          <div class="xor-grid" id="otp-xor-grid"></div>
+        </div>
+        <div class="xor-identity" id="otp-xor-identity" role="status" aria-live="polite"></div>
 
         <div class="card attack-card" style="margin-top:0.75rem">
           <h3>Crib Dragging</h3>
-          <p style="font-size:0.85rem;margin-bottom:0.5rem">If you guess one word of Message 1, you can recover the corresponding bytes of Message 2.</p>
+          <p style="font-size:0.85rem;margin-bottom:0.5rem">You never recovered the key — but with C1⊕C2 in hand, guessing a word of Message&nbsp;1 immediately hands you the same-position bytes of Message&nbsp;2 (since guess ⊕ (C1⊕C2) = P2). Watch the guess slide across and Message&nbsp;2 turn readable underneath.</p>
           <div class="io-group" style="max-width:300px">
-            <label for="otp-crib-input">Guess word at position 0</label>
-            <input type="text" id="otp-crib-input" value="THE" style="max-width:200px">
+            <label for="otp-crib-input">Guess a word from Message 1</label>
+            <input type="text" id="otp-crib-input" value="THE EAGLE" style="max-width:220px">
           </div>
-          <button class="action-btn" id="otp-crib-btn">Apply Crib</button>
-          <div class="crib-result" id="otp-crib-result" style="display:none"></div>
+          <label for="otp-crib-pos" style="display:block;font-size:0.75rem;color:var(--text-secondary);margin:0.4rem 0 0.2rem">Slide to position <span id="otp-crib-pos-val">0</span></label>
+          <input type="range" id="otp-crib-pos" min="0" value="0" step="1" style="width:100%;max-width:320px;accent-color:var(--accent)">
+          <div class="crib-drag" id="otp-crib-drag" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -559,56 +802,120 @@ function initOTP(): void {
   const reuseBtn = document.getElementById('otp-reuse-btn')!;
   const reuseOutput = document.getElementById('otp-reuse-output')!;
 
+  const cribInput = document.getElementById('otp-crib-input') as HTMLInputElement;
+  const cribPos = document.getElementById('otp-crib-pos') as HTMLInputElement;
+  const cribPosVal = document.getElementById('otp-crib-pos-val')!;
+  const cribDrag = document.getElementById('otp-crib-drag')!;
+
+  const MSG1 = 'THE EAGLE HAS LANDED';
+  const MSG2 = 'ATTACK AT DAWN SHARP';
+
   reuseBtn.addEventListener('click', () => {
-    const msg1 = 'THE EAGLE HAS LANDED';
-    const msg2 = 'ATTACK AT DAWN SHARP';
-    const p1 = textToBytes(msg1);
-    const p2 = textToBytes(msg2);
+    const p1 = textToBytes(MSG1);
+    const p2 = textToBytes(MSG2);
     const key = generateOTPKey(Math.max(p1.length, p2.length));
     const c1 = otpEncrypt(p1, key);
     const c2 = otpEncrypt(p2, key);
-    const xorCiphers = otpKeyReuseAttack(c1, c2);
+    const xorCiphers = otpKeyReuseAttack(c1, c2); // C1 ⊕ C2
 
-    const xorPlains = new Uint8Array(Math.min(p1.length, p2.length));
-    for (let i = 0; i < xorPlains.length; i++) xorPlains[i] = p1[i] ^ p2[i];
+    const n = Math.min(p1.length, p2.length);
+    const xorPlains = new Uint8Array(n);
+    for (let i = 0; i < n; i++) xorPlains[i] = p1[i] ^ p2[i]; // P1 ⊕ P2
 
     otpReuseState = { p1Bytes: p1, p2Bytes: p2, c1, c2, key };
 
     reuseOutput.style.display = 'block';
-    document.getElementById('otp-reuse-p1')!.textContent = msg1;
-    document.getElementById('otp-reuse-p2')!.textContent = msg2;
-    document.getElementById('otp-reuse-key')!.textContent = bytesToHex(key);
-    document.getElementById('otp-reuse-c1')!.textContent = bytesToHex(c1);
-    document.getElementById('otp-reuse-c2')!.textContent = bytesToHex(c2);
-    document.getElementById('otp-reuse-xor')!.textContent = bytesToHex(xorCiphers);
-    document.getElementById('otp-reuse-pxor')!.textContent = bytesToHex(xorPlains);
+    renderXorGrid(c1, c2, xorCiphers, xorPlains, key, n);
+
+    // The two computed rows are provably equal; verify and light them up.
+    let equal = true;
+    for (let i = 0; i < n; i++) if (xorCiphers[i] !== xorPlains[i]) { equal = false; break; }
+    const idBox = document.getElementById('otp-xor-identity')!;
+    idBox.className = `xor-identity ${equal ? 'match' : 'nomatch'}`;
+    idBox.innerHTML = equal
+      ? `<span class="xor-check">✓</span> <strong>C1 ⊕ C2 = P1 ⊕ P2</strong> — identical in all ${n} bytes. The shared key cancelled out completely; the attacker now has the XOR of the two plaintexts without ever knowing the key.`
+      : `Rows differ (unexpected).`;
+
+    // Configure the crib slider range to valid start positions.
+    const maxStart = Math.max(0, n - Math.max(1, textToBytes(cribInput.value).length));
+    cribPos.max = String(maxStart);
+    cribPos.value = '0';
+    cribPosVal.textContent = '0';
+    updateCrib();
   });
 
-  // Crib dragging
-  const cribBtn = document.getElementById('otp-crib-btn')!;
-  const cribInput = document.getElementById('otp-crib-input') as HTMLInputElement;
-  const cribResult = document.getElementById('otp-crib-result')!;
-
-  cribBtn.addEventListener('click', () => {
+  function updateCrib(): void {
     if (!otpReuseState.c1 || !otpReuseState.c2) return;
-    const guess = cribInput.value;
-    const guessBytes = textToBytes(guess);
     const xorCiphers = otpKeyReuseAttack(otpReuseState.c1, otpReuseState.c2);
+    const n = xorCiphers.length;
+    const guessBytes = textToBytes(cribInput.value.toUpperCase());
+    const start = Math.min(parseInt(cribPos.value || '0'), Math.max(0, n - 1));
+    cribPosVal.textContent = String(start);
 
-    // XOR the guess with C1⊕C2 at position 0 to recover P2 at that position
-    const recoveredBytes = new Uint8Array(guessBytes.length);
-    for (let i = 0; i < guessBytes.length && i < xorCiphers.length; i++) {
-      recoveredBytes[i] = guessBytes[i] ^ xorCiphers[i];
+    // Recover P2 bytes under the crib: P2[i] = guess[i] ⊕ (C1⊕C2)[i].
+    const cells: string[] = [];
+    let recovered = '';
+    for (let i = 0; i < n; i++) {
+      const gi = i - start;
+      if (gi >= 0 && gi < guessBytes.length) {
+        const rec = guessBytes[gi] ^ xorCiphers[i];
+        const ch = rec >= 32 && rec < 127 ? String.fromCharCode(rec) : '·';
+        recovered += ch;
+        const printable = rec >= 32 && rec < 127;
+        cells.push(`<span class="crib-cell landed${printable ? '' : ' junk'}">
+          <span class="crib-guess">${escapeHtml(String.fromCharCode(guessBytes[gi]))}</span>
+          <span class="crib-arrow">↓</span>
+          <span class="crib-out">${escapeHtml(ch)}</span>
+        </span>`);
+      } else {
+        cells.push(`<span class="crib-cell empty"><span class="crib-guess">·</span><span class="crib-arrow"> </span><span class="crib-out">·</span></span>`);
+      }
     }
-    const recovered = bytesToText(recoveredBytes);
 
-    cribResult.style.display = 'block';
-    cribResult.innerHTML = `
-      Guessing "${escapeHtml(guess)}" as start of Message 1...<br>
-      Recovered from Message 2 at position 0: <strong>${escapeHtml(recovered)}</strong><br>
-      <span class="note">If the recovered text looks like English, the guess is likely correct.</span>
+    cribDrag.style.display = 'block';
+    const looksEnglish = /^[A-Z ]+$/.test(recovered.trim()) && recovered.trim().length > 0;
+    cribDrag.innerHTML = `
+      <div class="crib-legend"><span>Guess for Msg&nbsp;1 →</span><span>Recovered Msg&nbsp;2 ↓</span></div>
+      <div class="crib-row" tabindex="0" role="region" aria-label="Crib guess aligned over recovered Message 2 bytes">${cells.join('')}</div>
+      <p class="note" style="margin-top:0.5rem">Recovered Message 2 slice: <strong class="crib-recovered">${escapeHtml(recovered.replace(/·/g, '_')) || '—'}</strong>. ${looksEnglish ? 'Looks like English — the crib is correctly placed, and this <em>also</em> confirms the Message&nbsp;1 guess.' : 'Gibberish means the guess or position is wrong — slide it until readable text appears.'}</p>
     `;
+  }
+
+  cribInput.addEventListener('input', () => {
+    if (otpReuseState.c1) {
+      const n = otpReuseState.c1.length;
+      const maxStart = Math.max(0, n - Math.max(1, textToBytes(cribInput.value).length));
+      cribPos.max = String(maxStart);
+      if (parseInt(cribPos.value) > maxStart) cribPos.value = String(maxStart);
+    }
+    updateCrib();
   });
+  cribPos.addEventListener('input', updateCrib);
+}
+
+// Render C1, C2, C1⊕C2, P1⊕P2, and (revealed) key as byte-aligned monospace rows.
+function renderXorGrid(
+  c1: Uint8Array, c2: Uint8Array, xorC: Uint8Array, xorP: Uint8Array, key: Uint8Array, n: number,
+): void {
+  const grid = document.getElementById('otp-xor-grid')!;
+  const rows: Array<{ label: string; bytes: Uint8Array; cls: string }> = [
+    { label: 'K (shared)', bytes: key, cls: 'row-key' },
+    { label: 'C1', bytes: c1, cls: '' },
+    { label: 'C2', bytes: c2, cls: '' },
+    { label: 'C1 ⊕ C2', bytes: xorC, cls: 'row-identity' },
+    { label: 'P1 ⊕ P2', bytes: xorP, cls: 'row-identity' },
+  ];
+  grid.style.setProperty('--cols', String(n));
+  grid.innerHTML = rows.map(r => `
+    <div class="xor-row ${r.cls}">
+      <span class="xor-row-label">${r.label}</span>
+      <div class="xor-bytes">
+        ${Array.from({ length: n }, (_, i) =>
+          `<span class="xor-byte">${(r.bytes[i] ?? 0).toString(16).padStart(2, '0')}</span>`
+        ).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 // ═══════════════════════════════════════
@@ -619,6 +926,7 @@ function buildAESPanel(): string {
   return `
     <h2>AES-256-GCM — ${era.year}</h2>
     <p class="era-tagline">${era.tagline}</p>
+    <p class="why-today">This is the cipher securing your HTTPS connections, disk encryption, and messaging apps right now. It isn't magic — it's the whole arc paying off: counter mode fixes Vigenère's repetition, and an authentication tag fixes the "no integrity" flaw every earlier cipher shared.</p>
 
     <div class="card">
       <h3>Live AES-256-GCM Encryption</h3>
@@ -651,6 +959,36 @@ function buildAESPanel(): string {
       <h3>Decrypt</h3>
       <button class="action-btn" id="aes-decrypt-btn">Decrypt</button>
       <div class="output" id="aes-decrypted" role="status" aria-live="polite" aria-label="Decrypted output" style="margin-top:0.5rem">—</div>
+    </div>
+
+    <div class="card">
+      <h3>Peek Inside GCM</h3>
+      <p class="note" style="margin-top:0;margin-bottom:0.6rem">GCM is a stream cipher plus a checksum you can't forge. Encrypt above, then follow the flow: your passphrase is stretched into a 256-bit key, AES runs as a <strong>counter-mode keystream</strong> that XORs your plaintext (no repetition — that's the Vigenère fix), and the ciphertext is fed through <strong>GHASH</strong> to produce a 128-bit authentication tag (the integrity fix).</p>
+      <div class="gcm-diagram" id="aes-gcm-diagram" role="img" aria-label="Schematic of AES-GCM: passphrase through PBKDF2 to key; plaintext XOR counter-mode keystream to ciphertext; ciphertext through GHASH to authentication tag">
+        <div class="gcm-stage">
+          <div class="gcm-box">Passphrase</div>
+          <div class="gcm-op">→ PBKDF2<br><span class="gcm-op-sub">200k iters</span></div>
+          <div class="gcm-box gcm-key">256-bit key</div>
+        </div>
+        <div class="gcm-stage gcm-stream">
+          <div class="gcm-col">
+            <div class="gcm-box gcm-key">key</div>
+            <span class="gcm-plus">+ counter</span>
+          </div>
+          <div class="gcm-op">→ AES<br><span class="gcm-op-sub">counter mode</span></div>
+          <div class="gcm-box gcm-stream-box">keystream</div>
+          <div class="gcm-xor">⊕</div>
+          <div class="gcm-box">plaintext</div>
+          <div class="gcm-op">=</div>
+          <div class="gcm-box gcm-ct" id="gcm-ct-box">ciphertext</div>
+        </div>
+        <div class="gcm-stage gcm-auth">
+          <div class="gcm-box gcm-ct" id="gcm-ct-box2">ciphertext</div>
+          <div class="gcm-op">→ GHASH<br><span class="gcm-op-sub">Galois field</span></div>
+          <div class="gcm-box gcm-tag" id="gcm-tag-box">auth tag</div>
+        </div>
+      </div>
+      <p class="note gcm-tamper-note" id="gcm-tamper-note" style="display:none"></p>
     </div>
 
     <div class="card attack-card">
@@ -692,6 +1030,25 @@ function initAES(): void {
   const verifyBtn = document.getElementById('aes-verify-btn')!;
   const verifyResult = document.getElementById('aes-verify-result')!;
 
+  const ctBox = document.getElementById('gcm-ct-box')!;
+  const ctBox2 = document.getElementById('gcm-ct-box2')!;
+  const tagBox = document.getElementById('gcm-tag-box')!;
+  const tamperNote = document.getElementById('gcm-tamper-note')!;
+
+  // Short base64 snippet for the schematic boxes so they stay legible.
+  const snip = (b64: string) => b64.length > 10 ? b64.slice(0, 8) + '…' : b64;
+
+  function paintDiagram(): void {
+    if (!aesPayload) return;
+    ctBox.textContent = snip(aesPayload.ciphertext);
+    ctBox2.textContent = snip(aesPayload.ciphertext);
+    tagBox.textContent = snip(aesPayload.tag);
+    ctBox.classList.remove('gcm-changed');
+    ctBox2.classList.remove('gcm-changed');
+    tagBox.classList.remove('gcm-stale');
+    tamperNote.style.display = 'none';
+  }
+
   encryptBtn.addEventListener('click', async () => {
     encryptBtn.textContent = 'Encrypting...';
     try {
@@ -704,6 +1061,7 @@ function initAES(): void {
       document.getElementById('aes-tag')!.textContent = aesPayload.tag;
       verifyResult.innerHTML = '';
       decryptedDisplay.textContent = '—';
+      paintDiagram();
     } catch (e: any) {
       outputSection.style.display = 'block';
       document.getElementById('aes-ct')!.textContent = 'Error: ' + e.message;
@@ -736,6 +1094,22 @@ function initAES(): void {
     aesTampered = true;
     document.getElementById('aes-ct')!.textContent = aesPayload.ciphertext;
     verifyResult.innerHTML = '<div class="status error">⚠ One bit has been flipped in the ciphertext.</div>';
+
+    // Animate the single changed byte propagating through the schematic. GHASH
+    // is a keyed hash over the ciphertext, so any change makes the tag GHASH
+    // *would* now produce diverge from the stored tag — which Verify then proves.
+    ctBox.textContent = snip(aesPayload.ciphertext);
+    ctBox2.textContent = snip(aesPayload.ciphertext);
+    ctBox.classList.add('gcm-changed');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.setTimeout(() => {
+      ctBox2.classList.add('gcm-changed');
+      window.setTimeout(() => {
+        tagBox.classList.add('gcm-stale');
+        tamperNote.style.display = 'block';
+        tamperNote.innerHTML = '<strong>One flipped ciphertext byte changes the entire GHASH output.</strong> The stored tag was computed over the <em>original</em> ciphertext, so it no longer matches — GCM rejects the message before it even decrypts. Run Verify below to confirm.';
+      }, reduceMotion ? 0 : 350);
+    }, reduceMotion ? 0 : 350);
   });
 
   verifyBtn.addEventListener('click', async () => {
