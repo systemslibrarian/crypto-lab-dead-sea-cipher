@@ -45,11 +45,6 @@
     <meta name="twitter:image" content="https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/og-image.png" />
   </head>
   <body>
-<!-- BEGIN crypto-lab shared header — managed; edit shared-header.html + re-run reapply-header.py
-     Identical on every lab. Self-contained styles. Accents use each demo's own
-     --accent CSS variable (teal #35d6bb fallback). The ONLY per-repo value is the
-     repo name (crypto-lab-dead-sea-cipher) in the GitHub link.
-     Source of truth: github.com/systemslibrarian/crypto-lab/shared-header.html -->
 <style>
   .cl-topbar{
     /* The bar is always dark (#0b1512) regardless of page theme, so header
@@ -161,8 +156,8 @@
     else dedupeBanner();
   })();
 </script>
-<!-- END crypto-lab shared header -->
-    <div id="app"></div>
+    <!-- role="main" (not <main>) so the lab's CSS/JS keep addressing a div. -->
+    <div id="app" role="main"></div>
     <noscript>
       <p style="max-width: 40rem; margin: 4rem auto; padding: 0 1.5rem; text-align: center; font-family: Georgia, serif;">
         Dead Sea Cipher is an interactive cryptography demo that runs entirely in your browser.
