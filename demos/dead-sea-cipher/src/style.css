@@ -7,6 +7,15 @@
   --bg-card: #1a1a28;
   --bg-input: #0e0e16;
   --border: #2a2a3d;
+  /* Control boundaries only (WCAG 2.1 SC 1.4.11). Text fields are filled with
+     --bg-input (#0e0e16), which is only 1.30:1 against --bg-card and 1.09:1
+     against --bg-primary, so the border is the only thing delineating the field.
+     --border itself is 1.22:1 on --bg-card. #696976 keeps the palette's violet-
+     slate hue and clears 3:1 on every surface a field sits on: 3.63:1 on
+     --bg-primary, 3.43:1 on --bg-secondary, 3.16:1 on --bg-card, 3.53:1 on the
+     --bg-input fill. --border is left unchanged for decorative rules — card
+     outlines, dividers, table rules, tab strips. */
+  --border-strong: #696976;
   --border-active: #4a4a6d;
   --text-primary: #e0e0ea;
   --text-secondary: #9090a8;
@@ -42,6 +51,12 @@ html[data-theme='light'] {
   --bg-card: color-mix(in srgb, Canvas 94%, var(--accent) 6%);
   --bg-input: color-mix(in srgb, Canvas 86%, var(--accent) 14%);
   --border: color-mix(in srgb, CanvasText 18%, Canvas 82%);
+  /* Control boundaries only (SC 1.4.11) — see the :root note. Resolves to
+     #808080, which clears 3:1 on every light surface: 3.73:1 on --bg-primary,
+     3.43:1 on --bg-secondary, 3.64:1 on --bg-card, 3.25:1 on the --bg-input
+     fill. The light --border resolves to #d1d1d1 (1.26–1.44:1) and stays as-is
+     for decorative rules. */
+  --border-strong: color-mix(in srgb, CanvasText 50%, Canvas 50%);
   --border-active: color-mix(in srgb, var(--accent) 42%, Canvas 58%);
   --text-primary: color-mix(in srgb, CanvasText 92%, var(--accent) 8%);
   --text-secondary: color-mix(in srgb, CanvasText 70%, Canvas 30%);
@@ -210,7 +225,7 @@ html, body {
   width: 100%;
   padding: 0.65rem 0.8rem;
   background-color: var(--bg-input);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);   /* SC 1.4.11: >=3.16:1 dark, >=3.25:1 light */
   border-radius: 6px;
   color: var(--text-primary);
   font-family: var(--mono-font);
