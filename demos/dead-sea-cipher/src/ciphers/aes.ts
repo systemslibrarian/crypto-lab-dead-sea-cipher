@@ -29,17 +29,23 @@ function fromBase64(b64: string): Uint8Array {
   return bytes;
 }
 
-export async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+/**
+ * The 256 raw key bits PBKDF2 produces. Exported because the GHASH exhibit
+ * needs the same key Web Crypto sealed with in order to recompute H = E_K(0)
+ * and the tag mask E_K(J0) — values it cannot get out of an AES-GCM CryptoKey,
+ * which is deliberately non-extractable.
+ */
+export async function deriveKeyBytes(passphrase: string, salt: Uint8Array): Promise<Uint8Array> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     encoder.encode(passphrase),
     'PBKDF2',
     false,
-    ['deriveBits', 'deriveKey']
+    ['deriveBits']
   );
 
-  return crypto.subtle.deriveKey(
+  const bits = await crypto.subtle.deriveBits(
     {
       name: 'PBKDF2',
       salt: salt as unknown as BufferSource,
@@ -47,7 +53,18 @@ export async function deriveKey(passphrase: string, salt: Uint8Array): Promise<C
       hash: 'SHA-256',
     },
     keyMaterial,
-    { name: 'AES-GCM', length: 256 },
+    256
+  );
+
+  return new Uint8Array(bits);
+}
+
+export async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
+  const keyBytes = await deriveKeyBytes(passphrase, salt);
+  return crypto.subtle.importKey(
+    'raw',
+    keyBytes as unknown as BufferSource,
+    { name: 'AES-GCM' },
     false,
     ['encrypt', 'decrypt']
   );
@@ -108,10 +125,25 @@ export async function aesVerifyIntegrity(payload: AESPayload, passphrase: string
   }
 }
 
-export function tamperWithCiphertext(payload: AESPayload): AESPayload {
+/**
+ * Flip one bit of the ciphertext. The learner chooses which: `byteIndex` picks
+ * the byte, `bitIndex` the bit within it (0 = least significant). Both are
+ * clamped to the ciphertext, so the caller cannot silently miss.
+ *
+ * GCM's tag covers every ciphertext byte, so which bit is flipped should make
+ * no difference to whether verification fails — that invariance is the lesson,
+ * and it can only be seen if the position is a lever rather than a constant.
+ */
+export function tamperWithCiphertext(
+  payload: AESPayload,
+  byteIndex = 0,
+  bitIndex = 0
+): AESPayload {
   const bytes = fromBase64(payload.ciphertext);
   if (bytes.length > 0) {
-    bytes[0] ^= 0x01; // Flip one bit
+    const i = Math.min(Math.max(Math.trunc(byteIndex), 0), bytes.length - 1);
+    const b = Math.min(Math.max(Math.trunc(bitIndex), 0), 7);
+    bytes[i] ^= 1 << b;
   }
   return {
     ...payload,

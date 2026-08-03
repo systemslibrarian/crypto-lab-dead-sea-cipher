@@ -3,8 +3,9 @@ import { atbash, atbashHebrew, HEBREW_SCRIPT, HEBREW_SCRIPT_REVERSED } from './c
 import { caesarEncrypt, caesarDecrypt } from './ciphers/caesar.ts';
 import { vigenereEncrypt, vigenereDecrypt } from './ciphers/vigenere.ts';
 import { generateOTPKey, otpEncrypt, otpDecrypt, otpKeyReuseAttack, textToBytes, bytesToText, bytesToHex, hexToBytes } from './ciphers/otp.ts';
-import { aesEncrypt, aesDecrypt, aesVerifyIntegrity, tamperWithCiphertext } from './ciphers/aes.ts';
+import { aesEncrypt, aesDecrypt, aesVerifyIntegrity, tamperWithCiphertext, deriveKeyBytes, fromBase64 } from './ciphers/aes.ts';
 import type { AESPayload } from './ciphers/aes.ts';
+import { computeGcmTag, bitDifference, bytesToHex as bytesToHexGhash } from './ciphers/ghash.ts';
 import { letterFrequency, indexOfCoincidence, ENGLISH_FREQUENCIES } from './analysis/frequency.ts';
 import { kasiskiExamination } from './analysis/kasiski.ts';
 import { crackCaesar } from './analysis/caesar-crack.ts';
@@ -1031,12 +1032,33 @@ function buildAESPanel(): string {
         </div>
       </div>
       <p class="note gcm-tamper-note" id="gcm-tamper-note" style="display:none"></p>
+
+      <h4 class="ghash-heading">GHASH, computed here</h4>
+      <p class="note" id="gcm-ghash-idle" style="margin-top:0">Encrypt above and this panel runs the GF(2<sup>128</sup>) arithmetic over the ciphertext bytes on screen — H = E<sub>K</sub>(0<sup>128</sup>), the block chain, the mask E<sub>K</sub>(J<sub>0</sub>) — then checks the tag it derives against the one Web Crypto produced.</p>
+      <div id="gcm-ghash-panel" hidden>
+        <div class="aes-output-grid">
+          <span class="label">H = E_K(0^128):</span><span class="value" id="ghash-h"></span>
+          <span class="label">Blocks absorbed:</span><span class="value" id="ghash-blocks"></span>
+          <span class="label">GHASH output:</span><span class="value" id="ghash-out"></span>
+          <span class="label">Mask E_K(J0):</span><span class="value" id="ghash-mask"></span>
+          <span class="label">Tag = GHASH ⊕ mask:</span><span class="value" id="ghash-tag"></span>
+          <span class="label">Tag Web Crypto sealed with:</span><span class="value" id="ghash-reference"></span>
+        </div>
+        <div id="ghash-verdict" role="status" aria-live="polite"></div>
+      </div>
     </div>
 
     <div class="card attack-card">
       <h3>Tamper Detection (GCM Integrity)</h3>
-      <p style="font-size:0.85rem;margin-bottom:0.5rem">GCM authentication tag covers the entire ciphertext. One changed bit causes complete verification failure.</p>
-      <button class="action-btn danger" id="aes-tamper-btn">Tamper with Ciphertext (flip 1 bit)</button>
+      <p style="font-size:0.85rem;margin-bottom:0.5rem">The GCM authentication tag covers the entire ciphertext. Pick any bit of it — the choice should not change the outcome, and that invariance is the lesson.</p>
+      <div class="tamper-controls">
+        <label for="aes-tamper-byte">Ciphertext byte</label>
+        <input type="number" id="aes-tamper-byte" min="0" value="0" />
+        <label for="aes-tamper-bit">Bit (0 = LSB)</label>
+        <input type="number" id="aes-tamper-bit" min="0" max="7" value="0" />
+        <span class="tamper-range" id="aes-tamper-range">encrypt first</span>
+      </div>
+      <button class="action-btn danger" id="aes-tamper-btn">Flip that bit</button>
       <button class="action-btn" id="aes-verify-btn">Verify Integrity</button>
       <div id="aes-verify-result" role="status" aria-live="polite"></div>
     </div>
@@ -1060,6 +1082,10 @@ function buildAESPanel(): string {
 
 let aesPayload: AESPayload | null = null;
 let aesTampered = false;
+/** Raw PBKDF2 output for the run on screen — what the GHASH exhibit runs on. */
+let aesKeyBytes: Uint8Array | null = null;
+/** The tag Web Crypto sealed with. Tampering must not move it; that is the test. */
+let aesSealedTag: string | null = null;
 
 function initAES(): void {
   const passInput = document.getElementById('aes-passphrase') as HTMLInputElement;
@@ -1071,11 +1097,24 @@ function initAES(): void {
   const tamperBtn = document.getElementById('aes-tamper-btn')!;
   const verifyBtn = document.getElementById('aes-verify-btn')!;
   const verifyResult = document.getElementById('aes-verify-result')!;
+  const tamperByteInput = document.getElementById('aes-tamper-byte') as HTMLInputElement;
+  const tamperBitInput = document.getElementById('aes-tamper-bit') as HTMLInputElement;
+  const tamperRange = document.getElementById('aes-tamper-range')!;
 
   const ctBox = document.getElementById('gcm-ct-box')!;
   const ctBox2 = document.getElementById('gcm-ct-box2')!;
   const tagBox = document.getElementById('gcm-tag-box')!;
   const tamperNote = document.getElementById('gcm-tamper-note')!;
+
+  const ghashIdle = document.getElementById('gcm-ghash-idle')!;
+  const ghashPanel = document.getElementById('gcm-ghash-panel')!;
+  const ghashH = document.getElementById('ghash-h')!;
+  const ghashBlocks = document.getElementById('ghash-blocks')!;
+  const ghashOutEl = document.getElementById('ghash-out')!;
+  const ghashMask = document.getElementById('ghash-mask')!;
+  const ghashTag = document.getElementById('ghash-tag')!;
+  const ghashReference = document.getElementById('ghash-reference')!;
+  const ghashVerdict = document.getElementById('ghash-verdict')!;
 
   // Short base64 snippet for the schematic boxes so they stay legible.
   const snip = (b64: string) => b64.length > 10 ? b64.slice(0, 8) + '…' : b64;
@@ -1103,11 +1142,113 @@ function initAES(): void {
     tamperNote.style.display = 'none';
   }
 
+  /** Keep the byte selector honest about how many bytes there are to pick from. */
+  function paintTamperRange(): void {
+    if (!aesPayload) {
+      tamperRange.textContent = 'encrypt first';
+      tamperByteInput.removeAttribute('max');
+      return;
+    }
+    const len = fromBase64(aesPayload.ciphertext).length;
+    tamperByteInput.max = String(Math.max(len - 1, 0));
+    tamperRange.textContent = `of ${len} bytes (0–${Math.max(len - 1, 0)})`;
+    if (Number(tamperByteInput.value) > len - 1) tamperByteInput.value = String(len - 1);
+  }
+
+  /**
+   * Run GHASH over whatever ciphertext is on screen right now and report what
+   * came out. This is the exhibit's whole claim: before, the "one flipped byte
+   * changes the entire GHASH output" line was narrated by a timed animation
+   * with no GHASH anywhere in the page. Now the tag is rebuilt from the raw
+   * key, and the numbers below are that computation's output, not a caption.
+   */
+  async function renderGhash(): Promise<void> {
+    if (!aesPayload || !aesKeyBytes || !aesSealedTag) return;
+    const iv = fromBase64(aesPayload.iv);
+    const ct = fromBase64(aesPayload.ciphertext);
+    const parts = await computeGcmTag(aesKeyBytes, iv, ct);
+
+    ghashH.textContent = bytesToHexGhash(parts.hashSubkey);
+    ghashBlocks.textContent = `${parts.blocks} ciphertext block${parts.blocks === 1 ? '' : 's'} + 1 length block`;
+    ghashOutEl.textContent = bytesToHexGhash(parts.ghashOut);
+    ghashMask.textContent = bytesToHexGhash(parts.mask);
+    ghashTag.textContent = bytesToHexGhash(parts.tag);
+
+    const sealed = fromBase64(aesSealedTag);
+    ghashReference.textContent = bytesToHexGhash(sealed);
+    const differingBits = bitDifference(parts.tag, sealed);
+
+    ghashIdle.hidden = true;
+    ghashPanel.hidden = false;
+
+    if (differingBits === 0) {
+      ghashVerdict.innerHTML = aesTampered
+        ? '<div class="status error">❌ GHASH over the tampered ciphertext still equals the sealed tag — that would be a forgery, and it is not what happened. Re-run Encrypt.</div>'
+        : '<div class="status success">✓ This page\'s GHASH reproduces the tag Web Crypto sealed with — all 128 bits agree. The Galois-field arithmetic above is the real thing.</div>';
+    } else if (aesTampered) {
+      const pct = Math.round((differingBits / 128) * 100);
+      ghashVerdict.innerHTML =
+        `<div class="status error">❌ Flipping one bit of the ciphertext moved <strong>${differingBits} of 128</strong> tag bits (${pct}%). ` +
+        'That is GHASH computed over the bytes on screen, not an animation — the sealed tag can no longer be reached, so verification must fail.</div>';
+    } else {
+      ghashVerdict.innerHTML =
+        `<div class="status error">❌ Recomputed tag differs from Web Crypto's in ${differingBits} of 128 bits with no tamper applied. That is a bug in this page, not a property of GCM.</div>`;
+    }
+  }
+
+  /**
+   * The two inputs do not invalidate the same things, so they must not clear
+   * the same things.
+   *
+   * The plaintext is what the ciphertext, the tag and the GHASH table are all
+   * *about*. Edit it and every one of them describes bytes that are no longer
+   * on screen, so the whole run goes.
+   *
+   * The passphrase is also the key the learner decrypts and verifies *with* —
+   * typing a different one is the wrong-key experiment, not a new encryption.
+   * The ciphertext and its GHASH stay (they are still exactly what was sealed);
+   * what must go is any verdict that was reached under the old passphrase, so
+   * an "Integrity verified" tick cannot sit there vouching for a key nobody
+   * has checked.
+   */
+  function retireVerdicts(): void {
+    verifyResult.innerHTML = '';
+    decryptedDisplay.textContent = '—';
+    decryptedDisplay.style.color = '';
+  }
+
+  function retireAesRun(): void {
+    if (!aesPayload) return;
+    aesPayload = null;
+    aesKeyBytes = null;
+    aesSealedTag = null;
+    aesTampered = false;
+    outputSection.style.display = 'none';
+    decryptedDisplay.textContent = '—';
+    decryptedDisplay.style.color = '';
+    verifyResult.innerHTML = '';
+    ctBox.textContent = 'ciphertext';
+    ctBox2.textContent = 'ciphertext';
+    tagBox.textContent = 'auth tag';
+    ctBox.classList.remove('gcm-changed');
+    ctBox2.classList.remove('gcm-changed');
+    tagBox.classList.remove('gcm-stale');
+    tamperNote.style.display = 'none';
+    ghashPanel.hidden = true;
+    ghashVerdict.innerHTML = '';
+    ghashIdle.hidden = false;
+    paintTamperRange();
+  }
+
+  passInput.addEventListener('input', retireVerdicts);
+  textInput.addEventListener('input', retireAesRun);
+
   encryptBtn.addEventListener('click', async () => {
     encryptBtn.textContent = 'Encrypting...';
     try {
       aesPayload = await aesEncrypt(textInput.value, passInput.value);
       aesTampered = false;
+      aesSealedTag = aesPayload.tag;
       outputSection.style.display = 'block';
       document.getElementById('aes-ct')!.textContent = aesPayload.ciphertext;
       document.getElementById('aes-iv')!.textContent = aesPayload.iv;
@@ -1117,6 +1258,9 @@ function initAES(): void {
       decryptedDisplay.textContent = '—';
       decryptedDisplay.style.color = '';
       paintDiagram();
+      paintTamperRange();
+      aesKeyBytes = await deriveKeyBytes(passInput.value, fromBase64(aesPayload.salt));
+      await renderGhash();
     } catch (e: any) {
       outputSection.style.display = 'block';
       document.getElementById('aes-ct')!.textContent = 'Error: ' + e.message;
@@ -1148,19 +1292,25 @@ function initAES(): void {
       verifyResult.innerHTML = '<div class="status error">Encrypt something first.</div>';
       return;
     }
-    aesPayload = tamperWithCiphertext(aesPayload);
+    const ctLen = fromBase64(aesPayload.ciphertext).length;
+    const byteIndex = Math.min(Math.max(Number(tamperByteInput.value) || 0, 0), ctLen - 1);
+    const bitIndex = Math.min(Math.max(Number(tamperBitInput.value) || 0, 0), 7);
+    tamperByteInput.value = String(byteIndex);
+    tamperBitInput.value = String(bitIndex);
+
+    aesPayload = tamperWithCiphertext(aesPayload, byteIndex, bitIndex);
     aesTampered = true;
     document.getElementById('aes-ct')!.textContent = aesPayload.ciphertext;
-    verifyResult.innerHTML = '<div class="status error">⚠ One bit has been flipped in the ciphertext.</div>';
+    verifyResult.innerHTML = `<div class="status error">⚠ Bit ${bitIndex} of ciphertext byte ${byteIndex} has been flipped.</div>`;
     // The plaintext on screen was recovered from the ciphertext that just
     // stopped existing. Retire it rather than leave a successful decryption
     // sitting under a tamper warning.
     decryptedDisplay.textContent = '—';
     decryptedDisplay.style.color = '';
 
-    // Animate the single changed byte propagating through the schematic. GHASH
-    // is a keyed hash over the ciphertext, so any change makes the tag GHASH
-    // *would* now produce diverge from the stored tag — which Verify then proves.
+    // Mark the changed byte in the schematic, then recompute GHASH for real
+    // over the bytes that are now on screen. The animation is decoration; the
+    // number of moved tag bits printed underneath is the actual result.
     ctBox.textContent = snip(aesPayload.ciphertext);
     ctBox2.textContent = snip(aesPayload.ciphertext);
     ctBox.classList.add('gcm-changed');
@@ -1170,9 +1320,11 @@ function initAES(): void {
       window.setTimeout(() => {
         tagBox.classList.add('gcm-stale');
         tamperNote.style.display = 'block';
-        tamperNote.innerHTML = '<strong>One flipped ciphertext byte changes the entire GHASH output.</strong> The stored tag was computed over the <em>original</em> ciphertext, so it no longer matches — GCM rejects the message before it even decrypts. Run Verify below to confirm.';
+        tamperNote.innerHTML = 'The stored tag was computed over the <em>original</em> ciphertext, so it no longer matches — GCM rejects the message before it even decrypts. The recomputed GHASH below says by how much; Verify confirms the rejection.';
       }, reduceMotion ? 0 : 350);
     }, reduceMotion ? 0 : 350);
+
+    void renderGhash();
   });
 
   verifyBtn.addEventListener('click', async () => {

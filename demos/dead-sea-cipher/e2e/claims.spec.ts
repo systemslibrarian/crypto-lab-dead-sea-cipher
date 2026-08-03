@@ -25,7 +25,11 @@ import { expect, test as base, type Page } from '@playwright/test';
  *  - AES-256-GCM: encrypt/decrypt round-trips through real Web Crypto, tampering
  *    is rejected and names tampering as the cause, a wrong passphrase is
  *    rejected and names the passphrase, and the GCM schematic marks the stale
- *    tag only after a tamper.
+ *    tag only after a tamper. The GHASH panel's recomputed tag is checked
+ *    against the tag Web Crypto actually sealed with, byte for byte; the bit
+ *    the learner selects is the one that flips; the "N of 128 bits moved"
+ *    figure is recounted from the two hex strings the page rendered; and
+ *    editing an input retires exactly the claims that input supported.
  *
  * Verdicts are asserted against values the page itself computed and rendered.
  */
@@ -540,7 +544,7 @@ test('AES-256-GCM: a flipped bit is rejected and the rejection names tampering a
   // was still displayed as decrypted.
   await expect(page.locator('#aes-decrypted')).toHaveText('—');
   await expect(page.locator('#aes-verify-result .status.error')).toContainText(
-    'One bit has been flipped',
+    'Bit 0 of ciphertext byte 0 has been flipped',
   );
 
   // The schematic marks the tag stale and explains why.
@@ -600,6 +604,181 @@ test('AES-256-GCM: a wrong passphrase is rejected and blamed on the passphrase, 
   });
   await expect(page.locator('#aes-decrypted')).toContainText('passphrase');
   await expect(page.locator('#aes-decrypted')).not.toContainText('tampered');
+});
+
+test('AES-256-GCM: the page recomputes GHASH and lands on the tag Web Crypto sealed with', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('.');
+  await openEra(page, 'aes');
+
+  // Before any run there is no GHASH table to read — only the invitation.
+  await expect(page.locator('#gcm-ghash-panel')).toBeHidden();
+  await expect(page.locator('#gcm-ghash-idle')).toBeVisible();
+
+  await page.locator('#aes-encrypt-btn').click();
+  await expect(page.locator('#gcm-ghash-panel')).toBeVisible({ timeout: CRYPTO_TIMEOUT });
+
+  const hex32 = /^[0-9a-f]{32}$/;
+  const h = (await page.locator('#ghash-h').innerText()).trim();
+  const ghashOut = (await page.locator('#ghash-out').innerText()).trim();
+  const mask = (await page.locator('#ghash-mask').innerText()).trim();
+  const computedTag = (await page.locator('#ghash-tag').innerText()).trim();
+  const sealedTag = (await page.locator('#ghash-reference').innerText()).trim();
+  for (const field of [h, ghashOut, mask, computedTag, sealedTag]) expect(field).toMatch(hex32);
+
+  // tag = GHASH ⊕ mask, in the hex the page actually rendered.
+  const maskBytes = hexToBytes(mask);
+  expect(hexToBytes(ghashOut).map((b, i) => b ^ maskBytes[i])).toEqual(hexToBytes(computedTag));
+
+  // …and that recomputation equals the tag Web Crypto produced, which the AES
+  // panel prints separately in base64. Same 16 bytes, two independent paths.
+  const b64Tag = (await page.locator('#aes-tag').innerText()).trim();
+  const b64TagBytes = [...atob(b64Tag)].map((ch) => ch.charCodeAt(0));
+  expect(hexToBytes(sealedTag)).toEqual(b64TagBytes);
+  expect(hexToBytes(computedTag)).toEqual(b64TagBytes);
+
+  await expect(page.locator('#ghash-verdict .status.success')).toContainText('all 128 bits agree');
+  // Block count is derived from the ciphertext length, not a constant.
+  const ctLen = atob((await page.locator('#aes-ct').innerText()).trim()).length;
+  await expect(page.locator('#ghash-blocks')).toContainText(
+    `${Math.ceil(ctLen / 16)} ciphertext block`,
+  );
+
+  // The idle note is genuinely gone, not merely marked hidden (see the
+  // [hidden] trap regression at the bottom of this file).
+  expect(
+    await page
+      .locator('#gcm-ghash-idle')
+      .evaluate((el) => getComputedStyle(el as HTMLElement).display),
+  ).toBe('none');
+});
+
+test('AES-256-GCM: a learner-chosen bit is the one that flips, and the moved tag bits are counted', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('.');
+  await openEra(page, 'aes');
+
+  await page.locator('#aes-encrypt-btn').click();
+  await expect(page.locator('#gcm-ghash-panel')).toBeVisible({ timeout: CRYPTO_TIMEOUT });
+
+  const sealedTag = (await page.locator('#ghash-reference').innerText()).trim();
+  const before = (await page.locator('#aes-ct').innerText()).trim();
+  const ctLen = atob(before).length;
+  // The selector advertises the real ciphertext length, not a guess.
+  await expect(page.locator('#aes-tamper-range')).toHaveText(`of ${ctLen} bytes (0–${ctLen - 1})`);
+  expect(await page.locator('#aes-tamper-byte').getAttribute('max')).toBe(String(ctLen - 1));
+
+  // Pick a byte and bit that are not the old hardcoded (0, 0).
+  const byteIndex = 11;
+  const bitIndex = 5;
+  await page.locator('#aes-tamper-byte').fill(String(byteIndex));
+  await page.locator('#aes-tamper-bit').fill(String(bitIndex));
+  await page.locator('#aes-tamper-btn').click();
+
+  const after = (await page.locator('#aes-ct').innerText()).trim();
+  const beforeBytes = [...atob(before)].map((ch) => ch.charCodeAt(0));
+  const afterBytes = [...atob(after)].map((ch) => ch.charCodeAt(0));
+  const changed = beforeBytes.map((_, i) => i).filter((i) => beforeBytes[i] !== afterBytes[i]);
+  expect(changed).toEqual([byteIndex]);
+  expect(beforeBytes[byteIndex] ^ afterBytes[byteIndex]).toBe(1 << bitIndex);
+  await expect(page.locator('#aes-verify-result .status.error')).toContainText(
+    `Bit ${bitIndex} of ciphertext byte ${byteIndex} has been flipped`,
+  );
+
+  // GHASH is recomputed over the ciphertext now on screen: the tag it produces
+  // must be a different value from the sealed one, and the page must report the
+  // gap it measured rather than a canned "the entire output changes".
+  await expect(page.locator('#ghash-verdict .status.error')).toContainText('of 128', {
+    timeout: CRYPTO_TIMEOUT,
+  });
+  const recomputed = (await page.locator('#ghash-tag').innerText()).trim();
+  expect(recomputed).not.toBe(sealedTag);
+  expect((await page.locator('#ghash-reference').innerText()).trim()).toBe(sealedTag);
+
+  const verdict = await page.locator('#ghash-verdict').innerText();
+  const moved = Number(/(\d+) of 128/.exec(verdict)![1]);
+  const sealedBytes = hexToBytes(sealedTag);
+  const actual = hexToBytes(recomputed)
+    .map((b, i) => b ^ sealedBytes[i])
+    .reduce((n, b) => n + b.toString(2).replace(/0/g, '').length, 0);
+  expect(moved).toBe(actual);
+  expect(moved).toBeGreaterThan(0);
+
+  // And the real oracle agrees: Web Crypto rejects it.
+  await page.locator('#aes-verify-btn').click();
+  await expect(page.locator('#aes-verify-result .status.error')).toContainText(
+    'Integrity check FAILED',
+    { timeout: CRYPTO_TIMEOUT },
+  );
+});
+
+test('AES-256-GCM: editing an input retires the ciphertext, the tag and the GHASH verdict', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto('.');
+  await openEra(page, 'aes');
+
+  await page.locator('#aes-encrypt-btn').click();
+  await expect(page.locator('#gcm-ghash-panel')).toBeVisible({ timeout: CRYPTO_TIMEOUT });
+  await page.locator('#aes-verify-btn').click();
+  await expect(page.locator('#aes-verify-result .status.success')).toContainText(
+    'Integrity verified',
+    { timeout: CRYPTO_TIMEOUT },
+  );
+
+  // Editing the plaintext leaves every displayed result describing bytes that
+  // are no longer the ones on screen. They must retire, not sit there
+  // endorsing an encryption of a message nobody encrypted.
+  await page.locator('#aes-input').fill('A different message entirely.');
+  await expect(page.locator('#aes-output-section')).toBeHidden();
+  await expect(page.locator('#gcm-ghash-panel')).toBeHidden();
+  await expect(page.locator('#gcm-ghash-idle')).toBeVisible();
+  await expect(page.locator('#aes-verify-result')).toBeEmpty();
+  await expect(page.locator('#aes-decrypted')).toHaveText('—');
+  await expect(page.locator('#gcm-tag-box')).toHaveText('auth tag');
+  await expect(page.locator('#aes-tamper-range')).toHaveText('encrypt first');
+
+  // The controls are genuinely disarmed, not just visually cleared.
+  await page.locator('#aes-verify-btn').click();
+  await expect(page.locator('#aes-verify-result .status.error')).toContainText(
+    'Encrypt something first',
+  );
+
+  // The passphrase retires less, and should: it is also the key the learner
+  // decrypts *with*, so typing a new one is the wrong-key experiment rather
+  // than a new encryption. The sealed ciphertext and its GHASH are still
+  // exactly what they were; only the verdicts reached under the old passphrase
+  // are now unsupported, and only those may disappear.
+  await page.locator('#aes-encrypt-btn').click();
+  await expect(page.locator('#gcm-ghash-panel')).toBeVisible({ timeout: CRYPTO_TIMEOUT });
+  await page.locator('#aes-decrypt-btn').click();
+  await expect(page.locator('#aes-decrypted')).toHaveText('A different message entirely.', {
+    timeout: CRYPTO_TIMEOUT,
+  });
+  await page.locator('#aes-verify-btn').click();
+  await expect(page.locator('#aes-verify-result .status.success')).toBeVisible({
+    timeout: CRYPTO_TIMEOUT,
+  });
+  const sealedCt = (await page.locator('#aes-ct').innerText()).trim();
+
+  await page.locator('#aes-passphrase').fill('a different passphrase');
+  await expect(page.locator('#aes-verify-result')).toBeEmpty();
+  await expect(page.locator('#aes-decrypted')).toHaveText('—');
+  await expect(page.locator('#aes-output-section')).toBeVisible();
+  expect((await page.locator('#aes-ct').innerText()).trim()).toBe(sealedCt);
+  await expect(page.locator('#gcm-ghash-panel')).toBeVisible();
+
+  // …and the wrong key now reaches the failure state, blamed on the key.
+  await page.locator('#aes-verify-btn').click();
+  await expect(page.locator('#aes-verify-result .status.error')).toContainText(
+    'passphrase does not derive the key',
+    { timeout: CRYPTO_TIMEOUT },
+  );
 });
 
 test('AES-256-GCM: the controls refuse to act before anything has been encrypted', async ({

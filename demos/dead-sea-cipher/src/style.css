@@ -481,10 +481,43 @@ html[data-theme='light'] .k5 { color: #1f7d80; } html[data-theme='light'] .k-cha
 .gcm-op-sub { font-size: 0.62rem; color: var(--text-secondary); }
 .gcm-xor, .gcm-plus { font-family: var(--mono-font); color: var(--warning); font-weight: 700; font-size: 0.9rem; }
 .gcm-plus { font-size: 0.62rem; color: var(--text-muted); }
-.gcm-box.gcm-changed { background-color: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 30%, transparent); }
-.gcm-box.gcm-stale { background-color: color-mix(in srgb, var(--danger) 22%, transparent); color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
+/* SC 1.4.3: --danger on a 22% --danger tint measured 4.49:1 dark / 4.29:1
+   light — under the 4.5:1 floor. Nothing caught it because the tampered state
+   was never scanned; the a11y suite only ever saw the untouched page. The 15%
+   tint is the same pair .status.error already uses (5.1:1 dark, 4.8:1 light). */
+.gcm-box.gcm-changed { background-color: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); border-color: var(--danger); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 30%, transparent); }
+.gcm-box.gcm-stale { background-color: color-mix(in srgb, var(--danger) 15%, transparent); color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
 .gcm-tamper-note { color: var(--danger) !important; font-style: normal !important; }
 @media (max-width: 640px) { .gcm-stage { font-size: 0.9em; } }
+
+.ghash-heading { margin: 1.1rem 0 0.4rem; font-size: 0.9rem; color: var(--text-primary); }
+
+/* ── Learner-chosen tamper position ── */
+.tamper-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  margin: 0.6rem 0 0.8rem;
+  font-size: 0.78rem;
+}
+.tamper-controls label { color: var(--text-secondary); }
+.tamper-controls input[type="number"] {
+  width: 5.5rem;
+  padding: 0.4rem 0.5rem;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-strong);   /* SC 1.4.11, same boundary as the text inputs */
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--mono-font);
+  font-size: 0.8rem;
+}
+.tamper-controls input[type="number"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.tamper-range { color: var(--text-muted); font-family: var(--mono-font); font-size: 0.72rem; }
 
 .lessons-list { list-style: none; margin: 0.5rem 0; }
 .lessons-list li { padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
