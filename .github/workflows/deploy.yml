@@ -45,9 +45,9 @@ jobs:
         working-directory: demos/dead-sea-cipher
         run: npx playwright install --with-deps chromium
 
-      - name: Accessibility gate (axe-core, WCAG A/AA)
+      - name: Browser gates (axe-core WCAG A/AA + functional claims)
         working-directory: demos/dead-sea-cipher
-        run: npm run test:a11y
+        run: npm run test:e2e
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

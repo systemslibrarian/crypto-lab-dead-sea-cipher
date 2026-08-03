@@ -416,6 +416,12 @@ function initCaesar(): void {
     barsRow().forEach(b => { b.style.transform = ''; b.classList.remove('is-peak'); });
     updateFreqChart('caesar-freq-chart', ct);
     icDisplay.textContent = indexOfCoincidence(ct).toFixed(4);
+    // Retire the previous break. Its "Winner: shift N" verdict and ranked
+    // candidate list were computed from the OLD ciphertext; leaving them up
+    // beside a new one had the page announcing a key that no longer applied.
+    bruteList.style.display = 'none';
+    bruteList.innerHTML = '';
+    breakTime.textContent = '';
   }
 
   input.addEventListener('input', update);
@@ -552,6 +558,25 @@ function initVigenere(): void {
   const icCipher = document.getElementById('vig-ic-cipher')!;
   const icNeedle = document.getElementById('vig-ic-needle') as HTMLElement;
 
+  const kasiskiViz = document.getElementById('vig-kasiski-viz')!;
+  const kasiskiStrip = document.getElementById('vig-kasiski-strip')!;
+  const kasiskiHint = document.getElementById('vig-kasiski-hint')!;
+  const kasiskiFactors = document.getElementById('vig-kasiski-factors')!;
+
+  /**
+   * Retire a previous Kasiski run. Its highlighted repeats, gap brackets,
+   * factor rows, "key length = N" and RECOVERED KEY were all derived from the
+   * ciphertext that existed at the time; once the keyword or plaintext changes
+   * they describe a message that is no longer on screen.
+   */
+  function clearKasiski(): void {
+    kasiskiViz.style.display = 'none';
+    kasiskiStrip.innerHTML = '';
+    kasiskiFactors.innerHTML = '';
+    kasiskiOutput.textContent = '';
+    kasiskiHint.textContent = 'Hover or focus a highlighted repeat to see its spacing.';
+  }
+
   function update() {
     try {
       const ct = vigenereEncrypt(input.value, keyInput.value);
@@ -564,17 +589,19 @@ function initVigenere(): void {
       icNeedle.style.left = `${pct}%`;
     } catch {
       output.textContent = '(enter a valid key)';
+      // There is no ciphertext, so there is no leakage reading either. Leaving
+      // the last valid numbers up made the meter describe a text that the panel
+      // was simultaneously refusing to produce.
+      icPlain.textContent = '—';
+      icCipher.textContent = '—';
+      icNeedle.style.left = '100%';
     }
+    clearKasiski();
   }
 
   input.addEventListener('input', update);
   keyInput.addEventListener('input', update);
   update();
-
-  const kasiskiViz = document.getElementById('vig-kasiski-viz')!;
-  const kasiskiStrip = document.getElementById('vig-kasiski-strip')!;
-  const kasiskiHint = document.getElementById('vig-kasiski-hint')!;
-  const kasiskiFactors = document.getElementById('vig-kasiski-factors')!;
 
   kasiskiBtn.addEventListener('click', () => {
     const ct = output.textContent || '';
@@ -778,11 +805,26 @@ function initOTP(): void {
   const genBtn = document.getElementById('otp-gen-key')!;
   const encBtn = document.getElementById('otp-encrypt-btn')!;
 
+  /**
+   * Drop a ciphertext/plaintext pair that no longer belongs to what is on
+   * screen. A displayed ciphertext outlives its inputs the moment the plaintext
+   * is edited or the key is redrawn — and the "Decrypted" readout beside it
+   * then claims a round-trip that the shown key and message never performed.
+   */
+  function invalidateCiphertext(): void {
+    otpState.cipherBytes = undefined;
+    ctDisplay.textContent = '—';
+    decDisplay.textContent = '—';
+  }
+
+  input.addEventListener('input', invalidateCiphertext);
+
   genBtn.addEventListener('click', () => {
     const plainBytes = textToBytes(input.value);
     otpState.key = generateOTPKey(plainBytes.length);
     otpState.plainBytes = plainBytes;
     keyDisplay.textContent = bytesToHex(otpState.key);
+    invalidateCiphertext();
   });
 
   encBtn.addEventListener('click', () => {
@@ -1038,6 +1080,18 @@ function initAES(): void {
   // Short base64 snippet for the schematic boxes so they stay legible.
   const snip = (b64: string) => b64.length > 10 ? b64.slice(0, 8) + '…' : b64;
 
+  /**
+   * GCM rejects a message whenever the tag does not verify, and that happens for
+   * two very different reasons: the ciphertext was altered, or the key derived
+   * from the passphrase is the wrong one. The page knows which it caused, so it
+   * must say which — reporting "ciphertext has been tampered with" after a mere
+   * typo in the passphrase blames an attack that never happened.
+   */
+  const failureCause = (): string =>
+    aesTampered
+      ? 'the ciphertext has been tampered with. The GCM authentication tag does not match.'
+      : 'the passphrase does not derive the key this ciphertext was sealed with. The GCM authentication tag does not match.';
+
   function paintDiagram(): void {
     if (!aesPayload) return;
     ctBox.textContent = snip(aesPayload.ciphertext);
@@ -1061,6 +1115,7 @@ function initAES(): void {
       document.getElementById('aes-tag')!.textContent = aesPayload.tag;
       verifyResult.innerHTML = '';
       decryptedDisplay.textContent = '—';
+      decryptedDisplay.style.color = '';
       paintDiagram();
     } catch (e: any) {
       outputSection.style.display = 'block';
@@ -1078,8 +1133,11 @@ function initAES(): void {
       const plaintext = await aesDecrypt(aesPayload, passInput.value);
       decryptedDisplay.textContent = plaintext;
       decryptedDisplay.className = 'output';
+      // Clear the failure colour from any earlier attempt: a recovered
+      // plaintext left painted in --danger reads as a failure that succeeded.
+      decryptedDisplay.style.color = '';
     } catch {
-      decryptedDisplay.textContent = '❌ Decryption failed — authentication error';
+      decryptedDisplay.textContent = `❌ Decryption failed — ${failureCause()}`;
       decryptedDisplay.className = 'output';
       decryptedDisplay.style.color = 'var(--danger)';
     }
@@ -1094,6 +1152,11 @@ function initAES(): void {
     aesTampered = true;
     document.getElementById('aes-ct')!.textContent = aesPayload.ciphertext;
     verifyResult.innerHTML = '<div class="status error">⚠ One bit has been flipped in the ciphertext.</div>';
+    // The plaintext on screen was recovered from the ciphertext that just
+    // stopped existing. Retire it rather than leave a successful decryption
+    // sitting under a tamper warning.
+    decryptedDisplay.textContent = '—';
+    decryptedDisplay.style.color = '';
 
     // Animate the single changed byte propagating through the schematic. GHASH
     // is a keyed hash over the ciphertext, so any change makes the tag GHASH
@@ -1121,7 +1184,7 @@ function initAES(): void {
     if (ok) {
       verifyResult.innerHTML = '<div class="status success">✓ Integrity verified — ciphertext has not been tampered with.</div>';
     } else {
-      verifyResult.innerHTML = '<div class="status error">❌ Integrity check FAILED — ciphertext has been tampered with. GCM authentication tag does not match.</div>';
+      verifyResult.innerHTML = `<div class="status error">❌ Integrity check FAILED — ${escapeHtml(failureCause())}</div>`;
     }
   });
 }
