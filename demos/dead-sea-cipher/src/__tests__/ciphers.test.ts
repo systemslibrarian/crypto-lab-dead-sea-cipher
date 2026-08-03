@@ -240,9 +240,17 @@ describe('AES-256-GCM', () => {
   it('rejects a tamper at any learner-chosen byte and bit, not just byte 0 bit 0', async () => {
     const payload = await aesEncrypt(message, passphrase);
     const len = fromBase64(payload.ciphertext).length;
+    const before = fromBase64(payload.ciphertext);
     for (const [byteIndex, bitIndex] of [[0, 0], [1, 7], [len - 1, 3], [Math.floor(len / 2), 5]]) {
       const tampered = tamperWithCiphertext(payload, byteIndex, bitIndex);
       expect(tampered.ciphertext).not.toBe(payload.ciphertext);
+      // The chosen byte is the one that moved, and only that one — a lever
+      // that quietly always hits byte 0 would still fail verification, so
+      // rejection alone does not prove the selector is wired up.
+      const after = fromBase64(tampered.ciphertext);
+      const moved = [...after].map((_, i) => i).filter((i) => after[i] !== before[i]);
+      expect(moved).toEqual([byteIndex]);
+      expect(before[byteIndex] ^ after[byteIndex]).toBe(1 << bitIndex);
       expect(await aesVerifyIntegrity(tampered, passphrase)).toBe(false);
     }
   });
@@ -253,6 +261,11 @@ describe('AES-256-GCM', () => {
     const past = tamperWithCiphertext(payload, len + 500, 99);
     const last = tamperWithCiphertext(payload, len - 1, 7);
     expect(past.ciphertext).toBe(last.ciphertext);
+    // Clamped onto the final byte, not silently collapsed back to byte 0.
+    const before = fromBase64(payload.ciphertext);
+    const after = fromBase64(past.ciphertext);
+    expect([...after].map((_, i) => i).filter((i) => after[i] !== before[i])).toEqual([len - 1]);
+    expect(before[len - 1] ^ after[len - 1]).toBe(0x80);
     expect(await aesVerifyIntegrity(past, passphrase)).toBe(false);
   });
 });

@@ -52,6 +52,36 @@ async function revealAll(page: Page): Promise<void> {
       panel.removeAttribute('hidden');
     }
   });
+  await settle(page);
+}
+
+/**
+ * Wait until the page has stopped moving before letting axe read colours.
+ *
+ * This is not belt-and-braces. Revealing a panel that was `display: none`
+ * starts its colour transitions from the theme in force when it was hidden,
+ * and the light theme's palette is built on the `CanvasText` system colour,
+ * which Chromium re-resolves lazily after a `color-scheme` change. A scan that
+ * races those frames reads a half-swapped page: axe reported pairings such as
+ * "foreground #e0e0ea (the *dark* theme's text) on background #faf8f6 (a
+ * *light* theme card)" — a combination the page never actually renders — on
+ * roughly half of runs. Measured here, `document.getAnimations()` returns 516
+ * entries the instant the panels are revealed and does not drain for ~600ms,
+ * and the probed colours are stale for exactly that long.
+ *
+ * The old spec hid all of this by injecting `transition: none !important`,
+ * which also meant the suite could never observe a transition-related defect.
+ * Polling until nothing is animating settles the same race without blinding
+ * the scan, and fails loudly if the page never settles.
+ */
+async function settle(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await expect
+    .poll(() => page.evaluate(() => document.getAnimations().length), { timeout: 10_000 })
+    .toBe(0);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
 }
 
 /**
