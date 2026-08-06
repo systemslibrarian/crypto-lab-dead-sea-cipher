@@ -181,7 +181,10 @@ function buildAtbashPanel(): string {
 
     <div class="card">
       <h3>Hebrew Atbash Mapping</h3>
-      <div class="table-scroll">
+      <!-- tabindex: the 22-column table overflows this wrap at phone width and
+           holds nothing focusable, so without a tabstop keyboard users cannot
+           scroll it (WCAG 2.1.1). Same idiom as .kasiski-strip-wrap. -->
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Hebrew Atbash mapping table">
         <table class="mapping-table" id="atbash-hebrew-table">
           <tr><th scope="row">Letter</th>${HEBREW_SCRIPT.split('').map(c => `<td class="hebrew-cell" lang="he">${c}</td>`).join('')}</tr>
           <tr><th scope="row">Atbash</th>${HEBREW_SCRIPT_REVERSED.split('').map(c => `<td class="hebrew-cell" lang="he">${c}</td>`).join('')}</tr>
@@ -334,7 +337,10 @@ function buildCaesarPanel(): string {
       <p class="note" style="margin-top:0;margin-bottom:0.5rem">Watch the histogram slide until its peak lands on E, then read the ranked candidates: the winner is the shift whose decryption best matches English letter statistics (lowest χ²).</p>
       <button class="action-btn" id="caesar-break-btn">Break It</button>
       <div id="caesar-break-time" class="note"></div>
-      <div class="brute-force-list" id="caesar-brute-list" style="display:none"></div>
+      <!-- tabindex: 26 ranked rows against a 300px max-height always overflow,
+           and the rows are plain text — without a tabstop the list can only be
+           scrolled with a pointer (WCAG 2.1.1). -->
+      <div class="brute-force-list" id="caesar-brute-list" style="display:none" tabindex="0" role="region" aria-label="All 26 candidate shifts, ranked by fit to English"></div>
     </div>
 
     <div class="card flaw-card">

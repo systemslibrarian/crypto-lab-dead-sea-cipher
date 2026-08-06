@@ -317,6 +317,10 @@ button.action-btn.danger:hover { background-color: color-mix(in srgb, var(--dang
 .brute-force-item:last-child { border-bottom: none; }
 .brute-force-item.best { background-color: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-weight: 600; }
 .brute-force-item .shift-label { min-width: 6ch; color: var(--text-muted); }
+/* SC 1.4.3: --text-muted measured 3.97:1 (dark) / 4.5:1-borderline (light) on
+   the winner row's accent tint — the tint eats the margin --text-muted has on
+   a plain card. The winner's own accent ink measures 5.32:1 / 5.21:1 there. */
+.brute-force-item.best .shift-label { color: var(--accent); }
 
 .kasiski-details { margin-top: 0.75rem; }
 .kasiski-details summary { cursor: pointer; font-size: 0.8rem; color: var(--accent); font-weight: 600; }
@@ -343,11 +347,22 @@ button.action-btn.danger:hover { background-color: color-mix(in srgb, var(--dang
 .k-char { padding: 0.05rem 0; border-radius: 2px; transition: opacity 0.15s, background-color 0.15s; }
 .k-char.k-hit { color: var(--bg-input); font-weight: 700; padding: 0.05rem 0.05rem; }
 .k-char.k-hit:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 1px; }
-.k-char.k-dim { opacity: 0.28; }
+/* SC 1.4.3: the spotlight dim was `opacity: 0.28`, which rendered every
+   non-spotlit character at ~1.6:1 for anyone hovering or *tabbing through*
+   the strip — a state a keyboard user is in almost continuously. 0.9 is the
+   strongest dim whose worst pairing (white glyphs on the light-theme hit
+   tints) still clears 4.5:1 (measured 4.95:1; 0.85 measured 4.49:1). The
+   spotlight's main cue is the bracket line brightening, not this fade. */
+.k-char.k-dim { opacity: 0.9; }
 .k-brackets { position: relative; margin-top: 0.4rem; }
-.k-bracket { position: absolute; display: flex; flex-direction: column; align-items: center; opacity: 0.65; transition: opacity 0.15s; }
-.k-bracket.k-active { opacity: 1; }
-.k-bracket-line { width: 100%; height: 0.55rem; border: 1px solid currentColor; border-bottom: none; border-radius: 4px 4px 0 0; }
+/* SC 1.4.3: the inactive-bracket dim used to be `opacity: 0.65` on the whole
+   bracket, which took its "gap N" label down with it — measured 3.6:1 (dark
+   k0) and 2.79:1 (light k1) on the strip's --bg-input. The label is the
+   evidence the exhibit exists to show, so only the decorative line dims now
+   and the text stays at full strength. */
+.k-bracket { position: absolute; display: flex; flex-direction: column; align-items: center; }
+.k-bracket-line { width: 100%; height: 0.55rem; border: 1px solid currentColor; border-bottom: none; border-radius: 4px 4px 0 0; opacity: 0.65; transition: opacity 0.15s; }
+.k-bracket.k-active .k-bracket-line { opacity: 1; }
 .k-bracket-label { font-family: var(--mono-font); font-size: 0.62rem; margin-top: 0.1rem; white-space: nowrap; }
 
 /* Distinct accessible hues for each repeated sequence (readable in both themes). */
@@ -357,12 +372,18 @@ button.action-btn.danger:hover { background-color: color-mix(in srgb, var(--dang
 .k3 { color: #c07bd0; } .k-char.k3.k-hit { background-color: #c07bd0; }
 .k4 { color: #d0b24a; } .k-char.k4.k-hit { background-color: #d0b24a; }
 .k5 { color: #58bcc0; } .k-char.k5.k-hit { background-color: #58bcc0; }
-html[data-theme='light'] .k0 { color: #a85a28; } html[data-theme='light'] .k-char.k0.k-hit { background-color: #a85a28; color: #fff; }
+/* SC 1.4.3, light theme: four of the six hues were too light for the surfaces
+   their text sits on even at full opacity — k0 #a85a28 and k4 #8a6a00
+   measured 4.18:1 and 4.19:1 as bracket labels on --bg-input, k2 #2f7d3f
+   4.22:1 there, and k5 #1f7d80 4.49:1 as a factor-gap label on --bg-card.
+   Each is darkened just enough to clear 4.5:1 everywhere it is used as ink
+   (>=5.0:1 measured), which also lifts the white-on-hue hit cells. */
+html[data-theme='light'] .k0 { color: #96501f; } html[data-theme='light'] .k-char.k0.k-hit { background-color: #96501f; color: #fff; }
 html[data-theme='light'] .k1 { color: #1f5fa8; } html[data-theme='light'] .k-char.k1.k-hit { background-color: #1f5fa8; color: #fff; }
-html[data-theme='light'] .k2 { color: #2f7d3f; } html[data-theme='light'] .k-char.k2.k-hit { background-color: #2f7d3f; color: #fff; }
+html[data-theme='light'] .k2 { color: #256633; } html[data-theme='light'] .k-char.k2.k-hit { background-color: #256633; color: #fff; }
 html[data-theme='light'] .k3 { color: #8a3aa0; } html[data-theme='light'] .k-char.k3.k-hit { background-color: #8a3aa0; color: #fff; }
-html[data-theme='light'] .k4 { color: #8a6a00; } html[data-theme='light'] .k-char.k4.k-hit { background-color: #8a6a00; color: #fff; }
-html[data-theme='light'] .k5 { color: #1f7d80; } html[data-theme='light'] .k-char.k5.k-hit { background-color: #1f7d80; color: #fff; }
+html[data-theme='light'] .k4 { color: #755a00; } html[data-theme='light'] .k-char.k4.k-hit { background-color: #755a00; color: #fff; }
+html[data-theme='light'] .k5 { color: #1a6b6e; } html[data-theme='light'] .k-char.k5.k-hit { background-color: #1a6b6e; color: #fff; }
 
 .kasiski-hint { margin-top: 0.5rem; min-height: 1.2rem; }
 .kasiski-factors { margin-top: 0.25rem; }
@@ -443,7 +464,12 @@ html[data-theme='light'] .k5 { color: #1f7d80; } html[data-theme='light'] .k-cha
 .xor-row-label { flex: 0 0 6.5rem; font-family: var(--mono-font); font-size: 0.72rem; color: var(--text-muted); text-align: right; }
 .xor-bytes { display: flex; gap: 2px; }
 .xor-byte { font-family: var(--mono-font); font-size: 0.72rem; width: 1.5rem; text-align: center; padding: 0.15rem 0; border-radius: 3px; color: var(--text-secondary); background-color: color-mix(in srgb, var(--border) 30%, transparent); }
-.xor-row.row-key .xor-byte { color: var(--text-muted); opacity: 0.65; }
+/* SC 1.4.3: the revealed-key row used to be de-emphasised with
+   `color: --text-muted; opacity: 0.65`, which measured 2.84:1 (dark) on the
+   byte-cell tint — and even at full opacity --text-muted only reaches 4.41:1
+   (light) there. The key bytes are the attacker's whole prize, so they keep
+   the same --text-secondary ink as C1/C2 (5.74:1 dark, 6.56:1 light) and the
+   de-emphasis lives in the muted row label alone. */
 .xor-row.row-key .xor-row-label { color: var(--text-muted); }
 .xor-row.row-identity .xor-byte { color: var(--success); background-color: color-mix(in srgb, var(--success) 18%, transparent); font-weight: 700; }
 .xor-row.row-identity .xor-row-label { color: var(--success); font-weight: 700; }
@@ -461,9 +487,15 @@ html[data-theme='light'] .k5 { color: #1f7d80; } html[data-theme='light'] .k-cha
 .crib-cell { display: inline-flex; flex-direction: column; align-items: center; font-family: var(--mono-font); font-size: 0.8rem; min-width: 1.1rem; border-radius: 3px; padding: 0.1rem 0; }
 .crib-cell.landed { background-color: color-mix(in srgb, var(--accent) 16%, transparent); }
 .crib-cell.landed.junk { background-color: color-mix(in srgb, var(--danger) 14%, transparent); }
-.crib-cell.empty { opacity: 0.35; }
-.crib-cell .crib-guess { color: var(--text-muted); }
-.crib-cell .crib-arrow { color: var(--text-secondary); font-size: 0.7rem; }
+/* SC 1.4.3: empty cells were dimmed with `opacity: 0.35`, putting their
+   placeholder dots at ~1.7:1; landed cells painted the guess row in
+   --text-muted (3.69:1 dark) and the arrow in --text-secondary (4.25:1 dark)
+   on the accent tint. De-emphasis is now carried by colour that still clears
+   AA: --text-muted on the un-tinted empty cells (4.79:1 dark, 5.27:1 light),
+   full-strength ink on the tinted landed ones. */
+.crib-cell.empty .crib-guess, .crib-cell.empty .crib-out { color: var(--text-muted); }
+.crib-cell .crib-guess { color: var(--text-primary); }
+.crib-cell .crib-arrow { color: var(--text-primary); font-size: 0.7rem; }
 .crib-cell.landed .crib-out { color: var(--accent); font-weight: 700; }
 .crib-cell.landed.junk .crib-out { color: var(--danger); }
 .crib-recovered { font-family: var(--mono-font); color: var(--accent); letter-spacing: 0.1em; }
