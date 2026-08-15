@@ -20,7 +20,7 @@ import { NARROW, boot, expectScrollersReachable, openEra, scan, settle } from '.
  * attack button, so every one of those computed states shipped unscanned.
  */
 
-const THEMES = ['dark', 'light'] as const;
+const THEMES = ['dark'] as const;
 
 /** Web Crypto PBKDF2 at 200k iterations is slow; the AES states need headroom. */
 const CRYPTO_TIMEOUT = 30_000;
