@@ -12,7 +12,6 @@ import { crackCaesar } from './analysis/caesar-crack.ts';
 import { SCRIPTURE_REFERENCES, ERAS, FULL_ARC_REFLECTION, LESSONS_MAP } from './content/scripture.ts';
 
 const app = document.getElementById('app')!;
-const themeRoot = document.documentElement;
 
 // The era tabs, in timeline order, plus the synthesizing "Full Arc" view.
 const TABS: Array<{ id: string; name: string; year: string }> = [
@@ -20,39 +19,9 @@ const TABS: Array<{ id: string; name: string; year: string }> = [
   { id: 'full-arc', name: 'Full Arc', year: '2,600 yrs' },
 ];
 
-function getTheme(): 'dark' | 'light' {
-  return themeRoot.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-}
-
-function applyThemeToggleState(button: HTMLButtonElement): void {
-  const theme = getTheme();
-  const isDark = theme === 'dark';
-  button.textContent = isDark ? '🌙' : '☀️';
-  button.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
-}
-
-function initThemeToggle(): void {
-  if (!themeRoot.hasAttribute('data-theme')) {
-    themeRoot.setAttribute('data-theme', 'dark');
-  }
-
-  const toggle = document.getElementById('theme-toggle') as HTMLButtonElement | null;
-  if (!toggle) return;
-
-  applyThemeToggleState(toggle);
-
-  toggle.addEventListener('click', () => {
-    const nextTheme = getTheme() === 'dark' ? 'light' : 'dark';
-    themeRoot.setAttribute('data-theme', nextTheme);
-    localStorage.setItem('theme', nextTheme);
-    applyThemeToggleState(toggle);
-  });
-}
-
 // ─── Build the full HTML ───
 function buildApp(): void {
   app.innerHTML = `
-    <button id="theme-toggle" class="theme-toggle" type="button"></button>
     <div class="cl-hero">
       <div class="cl-hero-main">
         <h1 class="cl-hero-title">Dead Sea Cipher</h1>
@@ -86,7 +55,6 @@ function buildApp(): void {
     <div id="panel-full-arc" class="era-panel" role="tabpanel" aria-labelledby="tab-full-arc" tabindex="0">${buildFullArcPanel()}</div>
   `;
 
-  initThemeToggle();
   initNavigation();
   initAtbash();
   initCaesar();
