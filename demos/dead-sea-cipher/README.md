@@ -46,3 +46,11 @@ This demo is part of the [Crypto-Lab](https://systemslibrarian.github.io/crypto-
 ---
 
 *"So whether you eat or drink or whatever you do, do it all for the glory of God." — 1 Corinthians 10:31*
+
+## Publishing requests
+
+`npm run deploy` requests the existing `deploy.yml` workflow at `main`.
+The workflow retains unit tests, production build, and the full accessibility
+and functional claims browser suite before publication. A successful request
+is not successful publication; inspect the run and public application separately.
+Failed requests retain their nonzero exit status.
