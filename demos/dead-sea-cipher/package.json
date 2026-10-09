@@ -17,7 +17,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run && node --test tests/publish-request.test.mjs",
+    "test": "vitest run && node --test tests/publish-request.node.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
