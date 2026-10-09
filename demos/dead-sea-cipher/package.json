@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Interactive demo walking 2,600 years of cryptographic history — from Atbash (~600 BCE) to AES-256-GCM (2001 CE).",
+  "description": "Interactive demo walking 2,600 years of cryptographic history \u2014 from Atbash (~600 BCE) to AES-256-GCM (2001 CE).",
   "engines": {
-    "node": ">=20"
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
   },
   "license": "MIT",
   "homepage": "https://systemslibrarian.github.io/crypto-lab-dead-sea-cipher/",
@@ -17,19 +17,18 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run && node --test tests/publish-request.node.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test e2e/a11y.spec.ts",
     "test:claims": "playwright test e2e/claims.spec.ts",
-    "deploy": "npm run build && gh-pages -d dist"
+    "deploy": "gh workflow run deploy.yml --repo systemslibrarian/crypto-lab-dead-sea-cipher --ref main"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
-    "gh-pages": "^6.3.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.2",
-    "vitest": "^4.1.2"
+    "vitest": "^5.0.3"
   }
 }
