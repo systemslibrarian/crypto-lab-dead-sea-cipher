@@ -848,3 +848,483 @@ test('no element carrying the hidden attribute is actually rendered', async ({ p
   );
   expect(leaks, `elements marked hidden that still render: ${JSON.stringify(leaks)}`).toEqual([]);
 });
+
+/* ------------------------------------------------------------------- Affine */
+
+async function openAffine(page: Page): Promise<void> {
+  await page.goto('.');
+  await openEra(page, 'caesar');
+  await expect(page.locator('#affine-text')).toBeVisible();
+  await expect(page.locator('#affine-a option')).toHaveCount(25);
+  await expect(page.locator('#affine-b option')).toHaveCount(26);
+}
+
+function affineGcd(a: number, b: number): number {
+  while (b !== 0) {
+    const remainder = a % b;
+    a = b;
+    b = remainder;
+  }
+  return a;
+}
+
+function affineKeyCount(): number {
+  let count = 0;
+  for (let a = 1; a < 26; a++) {
+    if (affineGcd(a, 26) === 1) count++;
+  }
+  return count * 26;
+}
+
+async function displayedAffineInputs(page: Page) {
+  return {
+    a: Number(await page.locator('#affine-a').inputValue()),
+    b: Number(await page.locator('#affine-b').inputValue()),
+    plaintext: await page.locator('#affine-text').inputValue(),
+  };
+}
+
+async function expectAffineCiphertext(page: Page): Promise<void> {
+  const { a, b, plaintext } = await displayedAffineInputs(page);
+  const expected = plaintext.replace(/[a-z]/gi, (letter) => {
+    const base = letter >= 'a' ? 97 : 65;
+    const x = letter.charCodeAt(0) - base;
+    return String.fromCharCode(base + ((a * x + b) % 26));
+  });
+  await expect(page.locator('#affine-cipher')).toHaveText(expected);
+}
+
+async function fillAffinePairs(page: Page, pairs: [string, string][]): Promise<void> {
+  for (const [index, [x, y]] of pairs.entries()) {
+    await page.locator(`#affine-x${index + 1}`).fill(x);
+    await page.locator(`#affine-y${index + 1}`).fill(y);
+  }
+}
+
+async function readAffinePairs(page: Page): Promise<[number, number][]> {
+  const pairs: [number, number][] = [];
+  for (let i = 1; i <= 3; i++) {
+    const x = await page.locator(`#affine-x${i}`).inputValue();
+    const y = await page.locator(`#affine-y${i}`).inputValue();
+    if (i === 3 && !x && !y) continue;
+    expect(x).toMatch(/^[a-z]$/i);
+    expect(y).toMatch(/^[a-z]$/i);
+    pairs.push([x.toUpperCase().charCodeAt(0) - 65, y.toUpperCase().charCodeAt(0) - 65]);
+  }
+  return pairs;
+}
+
+async function matchingAffineKeys(page: Page) {
+  const pairs = await readAffinePairs(page);
+  const keys: { a: number; b: number }[] = [];
+  for (let a = 1; a < 26; a++) {
+    if (affineGcd(a, 26) !== 1) continue;
+    for (let b = 0; b < 26; b++) {
+      if (pairs.every(([x, y]) => (a * x + b) % 26 === y)) keys.push({ a, b });
+    }
+  }
+  return keys;
+}
+
+async function expectAffineSolverRecovery(page: Page): Promise<void> {
+  const solver = page.locator('#affine-solver');
+  await expect(solver).toHaveAttribute('data-verdict', 'recovered');
+  await expect(solver).toHaveClass('affine-alarm');
+  const printed = (await solver.innerText()).match(/a = (\d+), b = (\d+)/);
+  expect(printed, 'solver must print the recovered key').not.toBeNull();
+  const a = Number(printed![1]);
+  const b = Number(printed![2]);
+  expect(affineGcd(a, 26)).toBe(1);
+  for (const [x, y] of await readAffinePairs(page)) {
+    expect((a * x + b) % 26, `printed key must map ${x} to ${y}`).toBe(y);
+  }
+}
+
+async function expectNoAffineSolverKey(page: Page): Promise<void> {
+  await expect(page.locator('#affine-solver')).not.toContainText(
+    /a\s*=\s*\d+|b\s*=\s*\d+|key found/i,
+  );
+  await expect(page.locator('#affine-solver')).toHaveClass('affine-info');
+}
+
+test('Affine default ciphertext is recomputed from the displayed plaintext and key', async ({
+  page,
+}) => {
+  await openAffine(page);
+  await expectAffineCiphertext(page);
+});
+
+test('Affine changed ciphertext preserves case for the displayed 11,20 key', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-a').selectOption('11');
+  await page.locator('#affine-b').selectOption('20');
+  await page.locator('#affine-text').fill('In the beginning');
+  await expectAffineCiphertext(page);
+  await expect(page.locator('#affine-cipher')).toHaveText('Eh vtm fmiehhehi');
+});
+
+test('Affine displayed inverse equation checks the printed numbers', async ({ page }) => {
+  await openAffine(page);
+  for (const option of await page.locator('#affine-a option').all()) {
+    const a = Number(await option.getAttribute('value'));
+    if (affineGcd(a, 26) !== 1) continue;
+    await page.locator('#affine-a').selectOption(String(a));
+    const equation = (await page.locator('[data-check="inverse"]').innerText()).match(
+      /(\d+) × (\d+) mod 26 = (\d+)/,
+    );
+    expect(equation).not.toBeNull();
+    const [, printedA, inverse, remainder] = equation!.map(Number);
+    expect(printedA).toBe(Number(await page.locator('#affine-a').inputValue()));
+    expect((printedA * inverse) % 26).toBe(1);
+    expect(remainder).toBe((printedA * inverse) % 26);
+  }
+});
+
+test('Affine full ranking counts every independently admissible key', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-rank').click();
+  const rows = page.locator('.affine-candidate');
+  await expect(rows).toHaveCount(affineKeyCount());
+  await expect(page.locator('.affine-top')).toHaveCount(3);
+  const printed = (await rows.allInnerTexts()).map((row) => row.match(/a=(\d+), b=(\d+)/));
+  expect(printed.every(Boolean)).toBe(true);
+  expect(new Set(printed.map((row) => `${row![1]},${row![2]}`)).size).toBe(affineKeyCount());
+  for (const row of printed) expect(affineGcd(Number(row![1]), 26)).toBe(1);
+});
+
+test('Affine ranking recovery is an alarm matching the displayed key', async ({ page }) => {
+  await openAffine(page);
+  const { a, b, plaintext } = await displayedAffineInputs(page);
+  await page.locator('#affine-rank').click();
+  const verdict = page.locator('#affine-verdict');
+  await expect(verdict).toHaveAttribute('data-verdict', 'recovered');
+  await expect(verdict).toHaveClass('affine-alarm');
+  await expect(verdict).toContainText(`a = ${a}, b = ${b}`);
+  await expect(page.locator('.affine-candidate').first()).toHaveAttribute('data-a', String(a));
+  await expect(page.locator('.affine-candidate').first()).toHaveAttribute('data-b', String(b));
+  await expect(page.locator('.affine-candidate').first()).toContainText(plaintext);
+});
+
+test('Affine solver recovery satisfies every displayed pair', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-solve').click();
+  await expectAffineSolverRecovery(page);
+  await expect(page.locator('#affine-solver')).toContainText('a = (y₁ − y₂)(x₁ − x₂)⁻¹ mod 26');
+});
+
+test('Affine solver recovery confirmed by a third pair satisfies all three', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['D', 'Y'],
+    ['E', 'F'],
+    ['A', 'D'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expectAffineSolverRecovery(page);
+  await expect(page.locator('#affine-solver')).toContainText('also explains your third letter');
+});
+
+test('Affine negative claim: valid checks and frequency recovery together', async ({ page }) => {
+  await openAffine(page);
+  const { a, b, plaintext } = await displayedAffineInputs(page);
+  expect([a, b]).toEqual([7, 3]);
+  expect((plaintext.match(/[a-z]/gi) ?? []).length).toBe(60);
+  await page.locator('#affine-rank').click();
+  const checks = page.locator('#affine-checks [data-check]');
+  await expect(checks).toHaveCount(3);
+  expect(
+    await checks.evaluateAll((rows) => rows.map((row) => (row as HTMLElement).dataset.verdict)),
+    'every check passes in the negative-claim fixture',
+  ).toEqual(['pass', 'pass', 'pass']);
+  await expect(page.locator('#affine-checks [data-verdict="fail"]')).toHaveCount(0);
+  const verdict = page.locator('#affine-verdict');
+  await expect(verdict).toBeVisible();
+  await expect(verdict).toHaveAttribute('data-verdict', 'recovered');
+  await expect(verdict).toHaveClass('affine-alarm');
+  await expect(verdict).toContainText('VALID KEY — AND RECOVERED BY FREQUENCY');
+  await expect(verdict).toContainText(
+    `Multiplying first raises the number of keys to ${affineKeyCount()}, but does not make this cipher secure: it is still one fixed letter for one fixed letter, so the frequency attack that breaks Caesar also applies here.`,
+  );
+});
+
+test('Affine inadmissible multiplier refuses decryption and ranking', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-a').selectOption('2');
+  await expect(page.locator('#affine-checks [data-check]')).toHaveCount(0);
+  await expect(page.locator('#affine-checks')).toContainText('not decryptable');
+  await expect(page.locator('#affine-checks')).toContainText('13 distinct outputs');
+  await page.locator('#affine-rank').click();
+  await expect(page.locator('#affine-notice')).toContainText('Not decryptable');
+  await expect(page.locator('.affine-candidate')).toHaveCount(0);
+  await expect(page.locator('#affine-ranking')).toBeHidden();
+  await expect(page.locator('#affine-verdict')).toBeEmpty();
+});
+
+test('Affine repeated D→Y pairs report SeveralKeys with twelve matches', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['D', 'Y'],
+    ['D', 'Y'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'SeveralKeys');
+  const count = Number(
+    (await page.locator('#affine-solver').innerText()).match(/(\d+) affine keys/)![1],
+  );
+  expect(count).toBe((await matchingAffineKeys(page)).length);
+  expect(count).toBe(12);
+  await expect(page.locator('#affine-solver')).toContainText(
+    'add a third pair whose difference from the others is not 0 or 13',
+  );
+  await expectNoAffineSolverKey(page);
+});
+
+test('Affine A→D/N→Q report SeveralKeys with twelve matches', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['A', 'D'],
+    ['N', 'Q'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'SeveralKeys');
+  const count = Number(
+    (await page.locator('#affine-solver').innerText()).match(/(\d+) affine keys/)![1],
+  );
+  expect(count).toBe((await matchingAffineKeys(page)).length);
+  expect(count).toBe(12);
+  await expectNoAffineSolverKey(page);
+});
+
+test('Affine A→D/E→F recover 7,3 with the even-difference explanation', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['A', 'D'],
+    ['E', 'F'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expectAffineSolverRecovery(page);
+  await expect(page.locator('#affine-solver')).toContainText('a = 7, b = 3');
+  await expect(page.locator('#affine-solver')).toContainText(
+    'The difference is even, so a ≡ 7 (mod 13) has two roots and only one is odd',
+  );
+});
+
+test('Affine NoAffineKey for D→Y/E→A names no key', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['D', 'Y'],
+    ['E', 'A'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'NoAffineKey');
+  await expect(page.locator('#affine-solver')).toContainText('no affine key maps D→Y and E→A');
+  await expectNoAffineSolverKey(page);
+  expect(await matchingAffineKeys(page)).toHaveLength(0);
+});
+
+test('Affine NoAffineKey for A→C/B→C names no key', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['A', 'C'],
+    ['B', 'C'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'NoAffineKey');
+  await expect(page.locator('#affine-solver')).toContainText('no affine key maps A→C and B→C');
+  await expectNoAffineSolverKey(page);
+  expect(await matchingAffineKeys(page)).toHaveLength(0);
+});
+
+test('Affine no letters has nothing to measure and no candidate rows', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-rank').click();
+  await page.locator('#affine-text').fill('123 !?');
+  await page.locator('#affine-rank').click();
+  await expect(page.locator('#affine-notice')).toContainText('Nothing to measure');
+  await expect(page.locator('.affine-candidate')).toHaveCount(0);
+  await expect(page.locator('#affine-verdict')).toBeEmpty();
+  await expect(page.locator('#affine-ranking')).toBeHidden();
+});
+
+test('Affine short DEAD SEA SCROLLS stays an informational most likely candidate', async ({
+  page,
+}) => {
+  await openAffine(page);
+  await page.locator('#affine-text').fill('DEAD SEA SCROLLS');
+  const { a, b } = await displayedAffineInputs(page);
+  await page.locator('#affine-rank').click();
+  const verdict = page.locator('#affine-verdict');
+  await expect(verdict).toHaveAttribute('data-verdict', 'candidate');
+  await expect(verdict).toHaveClass('affine-info');
+  await expect(verdict).toContainText('MOST LIKELY CANDIDATE');
+  await expect(verdict).not.toContainText(/RECOVERED|VALID KEY/);
+  await expect(page.locator('#affine-notice')).toContainText('14 letters');
+  await expect(page.locator('#affine-notice')).toContainText('Short texts mislead the statistics');
+  await expect(page.locator('.affine-candidate').nth(1)).toHaveAttribute('data-a', String(a));
+  await expect(page.locator('.affine-candidate').nth(1)).toHaveAttribute('data-b', String(b));
+});
+
+test('Affine short LOVE ONE ANOTHER match is most likely, never recovered', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-text').fill('LOVE ONE ANOTHER');
+  const { a, b, plaintext } = await displayedAffineInputs(page);
+  const count = (plaintext.match(/[a-z]/gi) ?? []).length;
+  await page.locator('#affine-rank').click();
+  const verdict = page.locator('#affine-verdict');
+  await expect(verdict).toHaveAttribute('data-verdict', 'most-likely');
+  await expect(verdict).toHaveClass('affine-alarm');
+  await expect(verdict).toContainText(
+    `⚠ MOST LIKELY KEY: a = ${a}, b = ${b} — the top candidate matches the key in use, but ${count} letters is too few to call it found`,
+  );
+  await expect(verdict).not.toContainText(/RECOVERED|VALID KEY/);
+  await expect(page.locator('.affine-candidate').first()).toHaveAttribute('data-a', String(a));
+  await expect(page.locator('.affine-candidate').first()).toHaveAttribute('data-b', String(b));
+});
+
+test('Affine third-pair mismatch reports no key fitting all three', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['D', 'Y'],
+    ['E', 'F'],
+    ['A', 'A'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'NoAffineKey');
+  await expect(page.locator('#affine-solver')).toContainText(
+    'this key does not explain your third letter',
+  );
+  await expectNoAffineSolverKey(page);
+  expect(await matchingAffineKeys(page)).toHaveLength(0);
+});
+
+test('Affine third pair disambiguates a difference of thirteen', async ({ page }) => {
+  await openAffine(page);
+  await fillAffinePairs(page, [
+    ['A', 'D'],
+    ['N', 'Q'],
+    ['E', 'F'],
+  ]);
+  await page.locator('#affine-solve').click();
+  await expectAffineSolverRecovery(page);
+});
+
+for (const [id, newValue] of [
+  ['a', '11'],
+  ['b', '20'],
+  ['text', 'A changed message'],
+]) {
+  test(`Affine ${id} change retires the ranking and solver and says so`, async ({ page }) => {
+    await openAffine(page);
+    await page.locator('#affine-rank').click();
+    await page.locator('#affine-solve').click();
+    if (id === 'text') await page.locator('#affine-text').fill(newValue);
+    else await page.locator(`#affine-${id}`).selectOption(newValue);
+    await expect(page.locator('#affine-ranking')).toBeHidden();
+    await expect(page.locator('.affine-candidate')).toHaveCount(0);
+    await expect(page.locator('#affine-verdict')).toBeEmpty();
+    await expect(page.locator('#affine-verdict')).not.toHaveAttribute('data-verdict', /.+/);
+    await expect(page.locator('#affine-solver')).toBeEmpty();
+    await expect(page.locator('#affine-notice')).toContainText('retired');
+  });
+}
+
+test('Affine pair change retires the solver verdict and says so', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-solve').click();
+  await expectAffineSolverRecovery(page);
+  await page.locator('#affine-y2').fill('A');
+  await expect(page.locator('#affine-solver')).not.toHaveAttribute('data-verdict', /.+/);
+  await expect(page.locator('#affine-solver')).not.toHaveClass(/affine-alarm/);
+  await expect(page.locator('#affine-solver')).not.toContainText(/a = \d+, b = \d+/);
+  await expect(page.locator('#affine-solver')).toContainText('retired');
+});
+
+for (const [label, value] of [
+  ['empty', ''],
+  ['non-letter', '!'],
+]) {
+  test(`Affine ${label} pair input is invalid and names no key`, async ({ page }) => {
+    await openAffine(page);
+    await page.locator('#affine-x1').fill(value);
+    await page.locator('#affine-solve').click();
+    await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'invalid');
+    await expect(page.locator('#affine-solver')).toContainText('Each pair needs one Latin letter');
+    await expectNoAffineSolverKey(page);
+  });
+}
+
+test('Affine half-filled third pair is invalid and names no key', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-x3').fill('A');
+  await page.locator('#affine-solve').click();
+  await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'invalid');
+  await expectNoAffineSolverKey(page);
+});
+
+test('Affine same multiplier selection keeps a fresh ranking', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-rank').click();
+  const before = await page.locator('.affine-candidate').allTextContents();
+  const notice = await page.locator('#affine-notice').innerText();
+  const a = await page.locator('#affine-a').inputValue();
+  await page.locator('#affine-a').selectOption(a);
+  await expect(page.locator('#affine-ranking')).toBeVisible();
+  await expect(page.locator('.affine-candidate')).toHaveText(before);
+  await expect(page.locator('#affine-notice')).toHaveText(notice);
+  await expect(page.locator('#affine-verdict')).toHaveAttribute('data-verdict', 'recovered');
+  await expect(page.locator('#affine-verdict')).toHaveClass('affine-alarm');
+});
+
+test('Affine edits before any result do not claim retirement', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-a').selectOption('11');
+  await page.locator('#affine-y2').fill('A');
+  await expect(page.locator('#affine-notice')).toBeEmpty();
+  await expect(page.locator('#affine-solver')).toBeEmpty();
+});
+
+for (const preset of ['caesar', 'atbash']) {
+  test(`Affine ${preset} preset reports the computed match without a raw boolean`, async ({
+    page,
+  }) => {
+    await openAffine(page);
+    await page.locator(`#affine-${preset}`).click();
+    await expectAffineCiphertext(page);
+    const { b, plaintext } = await displayedAffineInputs(page);
+    const own = plaintext.replace(/[a-z]/gi, (letter) => {
+      const base = letter >= 'a' ? 97 : 65;
+      const x = letter.charCodeAt(0) - base;
+      return String.fromCharCode(base + (preset === 'atbash' ? 25 - x : (x + b) % 26));
+    });
+    const matches = (await page.locator('#affine-cipher').innerText()) === own;
+    await expect(page.locator('#affine-special')).toHaveAttribute(
+      'data-verdict',
+      matches ? 'pass' : 'fail',
+    );
+    await expect(page.locator('#affine-special')).toContainText(
+      matches ? '✓ matches' : '⚠ does not match',
+    );
+    await expect(page.locator('#affine-special')).not.toContainText(/true|false/);
+  });
+}
+
+test('Affine count explains the identity and the unchanged Caesar convention', async ({ page }) => {
+  await openAffine(page);
+  const count = affineKeyCount();
+  await expect(page.locator('#affine-count')).toContainText(
+    `${count} keys, one of which (a = 1, b = 0) leaves the text unchanged. The Fatal Flaw below counts Caesar's keys as 25 because it leaves that identity out; counted the same way, affine has ${count} − 1 = ${count - 1}.`,
+  );
+});
+
+test('Affine hidden regions paint no pixels before or after retirement', async ({ page }) => {
+  await openAffine(page);
+  await page.locator('#affine-rank').click();
+  await page.locator('#affine-a').selectOption('11');
+  expect(
+    await page
+      .locator('[hidden]')
+      .evaluateAll((elements) =>
+        elements.every((element) => !(element as HTMLElement).getClientRects().length),
+      ),
+  ).toBe(true);
+});
