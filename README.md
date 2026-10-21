@@ -49,7 +49,7 @@ npm run dev
 
 ## Build & Verify
 
-From `demos/dead-sea-cipher`, run `npm ci`, `npm test`, `npm run build`, and `npx playwright test` (all specs). The suites contain **63 Vitest tests**, **2 node:test tests**, and **67 Playwright tests** (17 accessibility + 50 claims). The affine suite checks all 312 round trips, all 26⁴ known-letter tuples and 2,000 seeded three-pair tuples against independent brute force. The five affine accessibility states are scanned at 1280px, 380px and 320px. Expected affine values are arithmetic facts and original examples, not published test vectors. `node scripts/check-affine-mutations.mjs` (from the repository root) proves the source changes are caught.
+From `demos/dead-sea-cipher`, run `npm ci`, `npm test`, `npm run build`, and `npx playwright test` (all specs). The suites contain **63 Vitest tests**, **2 node:test tests**, and **67 Playwright tests** (17 accessibility + 50 claims). The affine suite checks all 312 round trips, all 26⁴ known-letter tuples and 2,000 seeded three-pair tuples against independent brute force. The five affine accessibility states are scanned at 1280px, 380px and 320px. Expected affine values are arithmetic facts and original examples, not published test vectors. `node scripts/check-affine-mutations.mjs` (from the repository root) proves the source changes are caught: **14/14 mutations killed**, with the exact build artifact restored and the owning test green after every case.
 
 ## Historical & Classical Ciphers
 

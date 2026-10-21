@@ -3,7 +3,7 @@
 Read `brief-extension-affine.md` and the supplied master template. Extended the existing Caesar panel without changing its neighbouring era panels, header, footer, scripture text or historical “25” sites.
 
 - Original extension start: `3779099996b70fe0040789e96f9783856851f6ab`. This correction starts at `e8c8c07` on `fix/affine-exact-solver-claims`; PR only, no merge or deployment.
-- Verification: 63/63 Vitest tests (17 affine + 46 existing cipher tests), 2/2 node:test publishing-command tests, and 67/67 Playwright tests (17 accessibility + 50 claims) passed; zero failed, skipped or flaky tests. `npm ci` and the production build also passed. The solver is checked against independent brute force for all 456,976 two-pair tuples and 2,000 seeded three-pair tuples. Mutation evidence is generated only by `scripts/check-affine-mutations.mjs` in `mutation-evidence-affine.json`.
+- Verification: 63/63 Vitest tests (17 affine + 46 existing cipher tests), 2/2 node:test publishing-command tests, and 67/67 Playwright tests (17 accessibility + 50 claims) passed; zero failed, skipped or flaky tests. `npm ci` and the production build also passed. The solver is checked against independent brute force for all 456,976 two-pair tuples and 2,000 seeded three-pair tuples. **14/14 mutations were killed, zero survived, and zero DOES NOT BUILD**, with every owning test passing before mutation and after exact artifact restoration. The source was committed as `91edc665bb1445ab0226e61a1e6275e1b6f502bb` before mutation. Evidence is generated only by `scripts/check-affine-mutations.mjs` in `mutation-evidence-affine.json`.
 - Local browser verification uses Chromium 153.0.8010.0 through an ignored config because the Playwright Chromium 156 download returned invalid ZIP archives. The override changes only the executable/launch arguments; the committed configuration, build-before-preview, strict port, all specs and accessibility oracles are preserved. Local verification disables retries so failures cannot be hidden as flakes.
 - The five affine scan states are in `e2e/a11y.spec.ts`, immediately after Caesar broken: card open, a = 2 inadmissible, full 312-row ranking, D→Y/E→A with no key, and the §4.1d fixture. Their setup asserts structure and each is scanned at 1280px, the existing 380px, and 320px. Every affine claim is in `e2e/claims.spec.ts`; the old combined `e2e/affine.spec.ts` is removed. No baseline entries added; `e2e/gate.ts` is unchanged.
 - Overlap source review: Vigenère Break `7e674ebfaadf0681a6dff77ab16ffc2885b46013`, Enigma Forge `418d56def1808f38cc10eab23c0fb0e446c90001`; neither implements this affine experiment. Existing Atbash, Caesar, frequency analysis and scripture modules were read and reused.
@@ -47,3 +47,10 @@ The script's kill rules, baseline-owner checks, changed-bundle requirement,
 byte-for-byte restoration, restored hash and restored-owner checks are unchanged.
 Real changes are committed before any mutation is run. Mutation records are never
 hand-edited.
+
+The first mutation run stopped on the short-text case's restoration hash check:
+the source was byte-for-byte restored, but a stale mutant asset remained in `dist/`.
+A clean rebuild removed it, and the complete unmodified script then passed all
+14 cases. No kill or restoration check was relaxed. The final generated evidence
+records that complete successful run; the broken-fixture log names “every check
+passes in the negative-claim fixture” as its failing assertion.
