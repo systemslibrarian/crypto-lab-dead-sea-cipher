@@ -1,4 +1,5 @@
 import './style.css';
+import { buildAffineCard, initAffine } from './ui/affine-card';
 import { atbash, atbashHebrew, HEBREW_SCRIPT, HEBREW_SCRIPT_REVERSED } from './ciphers/atbash.ts';
 import { caesarEncrypt, caesarDecrypt } from './ciphers/caesar.ts';
 import { vigenereEncrypt, vigenereDecrypt } from './ciphers/vigenere.ts';
@@ -58,6 +59,7 @@ function buildApp(): void {
   initNavigation();
   initAtbash();
   initCaesar();
+  initAffine();
   initVigenere();
   initOTP();
   initAES();
@@ -311,6 +313,7 @@ function buildCaesarPanel(): string {
       <div class="brute-force-list" id="caesar-brute-list" style="display:none" tabindex="0" role="region" aria-label="All 26 candidate shifts, ranked by fit to English"></div>
     </div>
 
+    ${buildAffineCard()}
     <div class="card flaw-card">
       <h3>Fatal Flaw</h3>
       <p>${era.fatalFlaw}</p>

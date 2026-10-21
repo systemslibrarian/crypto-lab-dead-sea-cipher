@@ -2,7 +2,7 @@
 
 ## What It Is
 
-A browser-based cryptographic history demo that walks the full arc of cryptographic history — from Atbash (~600 BCE) through AES-256-GCM (2001 CE). Each stage shows why a cipher failed and what the next one fixed, turning the timeline into a story about how secrecy was repeatedly broken and rebuilt.
+A browser-based cryptographic history demo that walks the full arc of cryptographic history — from Atbash (~600 BCE) through AES-256-GCM (2001 CE). The Caesar panel also implements the affine cipher, including inverse checks, collisions, all 312 keys and known-letter recovery. Each stage shows why a cipher failed and what the next one fixed, turning the timeline into a story about how secrecy was repeatedly broken and rebuilt.
 
 ## When to Use It
 
@@ -46,6 +46,10 @@ npm run dev
 - [crypto-lab-enigma-forge](https://systemslibrarian.github.io/crypto-lab-enigma-forge/) — rotors, plugboard, and a Bombe-style attack on the Enigma machine.
 - [crypto-lab-otp-vault](https://systemslibrarian.github.io/crypto-lab-otp-vault/) — one-time-pad perfect secrecy and the two-time-pad reuse failure.
 - [crypto-lab-iron-serpent](https://systemslibrarian.github.io/crypto-lab-iron-serpent/) — modern block ciphers (Serpent, AES-256) that inherit the lessons of this timeline.
+
+## Build & Verify
+
+From `demos/dead-sea-cipher`, run `npm test`, `npm run build`, and `npm run test:e2e`. The affine suite checks all 312 round trips and all 26⁴ known-letter tuples against independent enumeration. Expected affine values are arithmetic facts and original examples, not published test vectors. `node scripts/check-affine-mutations.mjs` (from the repository root) proves the source changes are caught.
 
 ## Historical & Classical Ciphers
 

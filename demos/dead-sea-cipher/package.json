@@ -20,8 +20,8 @@
     "test": "vitest run && node --test tests/publish-request.node.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:a11y": "playwright test e2e/a11y.spec.ts",
-    "test:claims": "playwright test e2e/claims.spec.ts",
+    "test:a11y": "playwright test e2e/a11y.spec.ts e2e/affine.spec.ts",
+    "test:claims": "playwright test e2e/claims.spec.ts e2e/affine.spec.ts",
     "deploy": "gh workflow run deploy.yml --repo systemslibrarian/crypto-lab-dead-sea-cipher --ref main"
   },
   "devDependencies": {

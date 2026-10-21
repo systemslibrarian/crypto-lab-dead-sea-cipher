@@ -57,3 +57,7 @@ Every historical claim in this demo is sourced. This document provides the refer
 - Jeremiah 51:1 (ESV): "Thus says the LORD: Behold, I will stir up the spirit of a destroyer against Babylon, against the inhabitants of Leb-kamai."
 - Jeremiah 51:41 (ESV): "How Sheshach is taken, the praise of the whole earth seized!"
 - 1 Corinthians 10:31 (NIV): "So whether you eat or drink or whatever you do, do it all for the glory of God."
+
+## Affine cipher
+
+Paar & Pelzl, *Understanding Cryptography* (2010), §1.4.4, supplies teaching context for y = ax + b mod 26 and the 12 × 26 key space. No historical-use claim is made. Admissibility, inverses and the key count are independently computed in the page; original examples are checked in `src/__tests__/affine.test.ts`. The source section was verified by the supplied brief author; this implementation session independently verified the arithmetic.

@@ -1,0 +1,82 @@
+[
+  {
+    "name": "admissible modulus",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/ciphers/affine.ts b/demos/dead-sea-cipher/src/ciphers/affine.ts\nindex bf3fa9a..c611a23 100644\n--- a/demos/dead-sea-cipher/src/ciphers/affine.ts\n+++ b/demos/dead-sea-cipher/src/ciphers/affine.ts\n@@ -1,7 +1,7 @@\n /** Arithmetic teaching cipher; Latin letters only. No security for real data. */\n export const mod26 = (x: number): number => ((x % 26) + 26) % 26;\n export function gcd(a: number, b: number): number { while (b) [a, b] = [b, a % b]; return Math.abs(a); }\n-export function validA(): number[] { return Array.from({ length: 25 }, (_, i) => i + 1).filter(a => gcd(a, 26) === 1); }\n+export function validA(): number[] { return Array.from({ length: 25 }, (_, i) => i + 1).filter(a => gcd(a, 13) === 1); }\n export function inverseMod26(a: number): number | null {\n   for (let i = 1; i < 26; i++) if (mod26(a * i) === 1) return i;\n   return null;\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "f033e4a4b50908ef54cbbc6fba26cd0f61cdde1134fa9d3861b1977e50191597",
+    "namedTest": "admissible multipliers",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "inverse multiplier",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/ciphers/affine.ts b/demos/dead-sea-cipher/src/ciphers/affine.ts\nindex bf3fa9a..77ec86c 100644\n--- a/demos/dead-sea-cipher/src/ciphers/affine.ts\n+++ b/demos/dead-sea-cipher/src/ciphers/affine.ts\n@@ -19,7 +19,7 @@ export function affineEncrypt(text: string, a: number, b: number): string {\n export function affineDecrypt(text: string, a: number, b: number): string {\n   parameters(a, b); const inv = inverseMod26(a);\n   if (inv === null) throw Error(`Not decryptable: gcd(${a}, 26) = ${gcd(a, 26)}; this key destroys information.`);\n-  return mapLetters(text, y => inv * (y - b));\n+  return mapLetters(text, y => a * (y - b));\n }\n export function collisions(a: number): number[][] {\n   const groups = new Map<number, number[]>();\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "0bb09a5a224df51115c62ee2ceeba0f4a47d416b81ff00d7d24b3bc122277d41",
+    "namedTest": "all 312 round trips",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "inverse offset",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/ciphers/affine.ts b/demos/dead-sea-cipher/src/ciphers/affine.ts\nindex bf3fa9a..d2ae9b0 100644\n--- a/demos/dead-sea-cipher/src/ciphers/affine.ts\n+++ b/demos/dead-sea-cipher/src/ciphers/affine.ts\n@@ -19,7 +19,7 @@ export function affineEncrypt(text: string, a: number, b: number): string {\n export function affineDecrypt(text: string, a: number, b: number): string {\n   parameters(a, b); const inv = inverseMod26(a);\n   if (inv === null) throw Error(`Not decryptable: gcd(${a}, 26) = ${gcd(a, 26)}; this key destroys information.`);\n-  return mapLetters(text, y => inv * (y - b));\n+  return mapLetters(text, y => inv * y - b);\n }\n export function collisions(a: number): number[][] {\n   const groups = new Map<number, number[]>();\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "49b548f0e31676eccadaeeec161d3293312823d695f207f28efa2fd0146f8c20",
+    "namedTest": "all 312 round trips",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "Caesar-only ranking",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/analysis/affine-crack.ts b/demos/dead-sea-cipher/src/analysis/affine-crack.ts\nindex 04ae34c..5466386 100644\n--- a/demos/dead-sea-cipher/src/analysis/affine-crack.ts\n+++ b/demos/dead-sea-cipher/src/analysis/affine-crack.ts\n@@ -5,7 +5,7 @@ export type PairResult = AffineKey | { kind: 'NotInvertible'; diff: number } | {\n export function crackAffine(ciphertext: string) {\n   if (!/[a-z]/i.test(ciphertext)) throw Error('Nothing to measure: enter some Latin letters.');\n   const rows: (AffineKey & { plaintext: string; score: number })[] = [];\n-  for (const a of validA()) for (let b = 0; b < 26; b++) {\n+  for (const a of [1]) for (let b = 0; b < 26; b++) {\n     const plaintext = affineDecrypt(ciphertext, a, b);\n     rows.push({ a, b, plaintext, score: chiSquaredFitness(plaintext) });\n   }\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "d42061443de5ce089c8dfe408a6fa713aaedc2eca45d2482f8ba4e82e5a796cc",
+    "namedTest": "short and long text rankings",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "inadmissible solved key",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/analysis/affine-crack.ts b/demos/dead-sea-cipher/src/analysis/affine-crack.ts\nindex 04ae34c..79d29d2 100644\n--- a/demos/dead-sea-cipher/src/analysis/affine-crack.ts\n+++ b/demos/dead-sea-cipher/src/analysis/affine-crack.ts\n@@ -16,7 +16,7 @@ export function solveFromPairs(x1: number, y1: number, x2: number, y2: number):\n   const diff = mod26(x1 - x2), inv = inverseMod26(diff);\n   if (inv === null) return { kind: 'NotInvertible', diff };\n   const a = mod26((y1 - y2) * inv);\n-  if (gcd(a, 26) !== 1) return { kind: 'NoAffineKey', a };\n+  if (gcd(a, 26) < 0) return { kind: 'NoAffineKey', a };\n   return { a, b: mod26(y1 - a * x1) };\n }\n export function confirmPair(key: AffineKey, x: number, y: number): boolean { return mod26(key.a * x + key.b) === y; }\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "4220d29c185c6e6ed3deb0ada12393cf4ddc5beec61aba054e8e2d57a93cc2a6",
+    "namedTest": "NoAffineKey rejects",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "calm recovery",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/ui/affine-card.ts b/demos/dead-sea-cipher/src/ui/affine-card.ts\nindex 3eb16ad..394ff4d 100644\n--- a/demos/dead-sea-cipher/src/ui/affine-card.ts\n+++ b/demos/dead-sea-cipher/src/ui/affine-card.ts\n@@ -50,7 +50,7 @@ export function initAffine(): void {\n       for(const [i,row] of rows.entries()){const p=document.createElement('p');p.className=`affine-candidate${i<3?' affine-top':''}`;p.dataset.a=String(row.a);p.dataset.b=String(row.b);p.textContent=`${i+1}. a=${row.a}, b=${row.b} · χ²=${row.score.toFixed(3)} · ${row.plaintext}`;el('ranking').append(p);}el('ranking').hidden=false;\n       put('notice',`${count} letters; ${rows.length} candidates. ${count<40?'Short texts mislead the statistics. The top row is most likely, not a proven key.':'Frequency ranking is a statistical guess; compare the candidate with the actual message.'}`);\n       const top=rows[0],recovered=top.a===Number(value('a'))&&top.b===Number(value('b'));\n-      el('verdict').className=recovered?'affine-alarm':'affine-info';el('verdict').dataset.verdict=recovered?'recovered':'candidate';\n+      el('verdict').className=recovered?'affine-info':'affine-info';el('verdict').dataset.verdict=recovered?'recovered':'candidate';\n       put('verdict',`${recovered?'⚠ VALID KEY — AND RECOVERED BY FREQUENCY':'Info — MOST LIKELY CANDIDATE'}: a = ${top.a}, b = ${top.b}. Multiplying first raises the number of keys to 312, but does not make this cipher secure: it is still one fixed letter for one fixed letter, so the frequency attack that breaks Caesar also applies here.`);\n     }catch(e){put('notice',(e as Error).message);}\n   });\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "4e41d11b60667298fe04471582d48f58090a0d4b01e5e63aea2a94e48470818f",
+    "namedTest": "Affine negative claim",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "missing negative claim",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/ui/affine-card.ts b/demos/dead-sea-cipher/src/ui/affine-card.ts\nindex 3eb16ad..be33541 100644\n--- a/demos/dead-sea-cipher/src/ui/affine-card.ts\n+++ b/demos/dead-sea-cipher/src/ui/affine-card.ts\n@@ -51,7 +51,7 @@ export function initAffine(): void {\n       put('notice',`${count} letters; ${rows.length} candidates. ${count<40?'Short texts mislead the statistics. The top row is most likely, not a proven key.':'Frequency ranking is a statistical guess; compare the candidate with the actual message.'}`);\n       const top=rows[0],recovered=top.a===Number(value('a'))&&top.b===Number(value('b'));\n       el('verdict').className=recovered?'affine-alarm':'affine-info';el('verdict').dataset.verdict=recovered?'recovered':'candidate';\n-      put('verdict',`${recovered?'⚠ VALID KEY — AND RECOVERED BY FREQUENCY':'Info — MOST LIKELY CANDIDATE'}: a = ${top.a}, b = ${top.b}. Multiplying first raises the number of keys to 312, but does not make this cipher secure: it is still one fixed letter for one fixed letter, so the frequency attack that breaks Caesar also applies here.`);\n+      put('verdict',`${recovered?'⚠ VALID KEY — AND RECOVERED BY FREQUENCY':'Info — MOST LIKELY CANDIDATE'}: a = ${top.a}, b = ${top.b}. Multiplying first raises the number of keys to 312, but does not make this cipher secure: a substitution is used, so the frequency attack that breaks Caesar also applies here.`);\n     }catch(e){put('notice',(e as Error).message);}\n   });\n   const pairIds=['x1','y1','x2','y2','x3','y3'];let pairSnapshot=pairIds.map(value).join('|');\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "f73196f21f4fca16513974d0a1c48112cb4fdfd651fc2e0e9015c343a86f347e",
+    "namedTest": "Affine negative claim",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  },
+  {
+    "name": "broken fixture check",
+    "sourceDiff": "diff --git a/demos/dead-sea-cipher/src/ui/affine-card.ts b/demos/dead-sea-cipher/src/ui/affine-card.ts\nindex 3eb16ad..afb988e 100644\n--- a/demos/dead-sea-cipher/src/ui/affine-card.ts\n+++ b/demos/dead-sea-cipher/src/ui/affine-card.ts\n@@ -34,7 +34,7 @@ export function initAffine(): void {\n     put('notice',changed?'Key or plaintext changed: previous ranking and solver result retired.':'');put('special','');\n     el('checks').replaceChildren();\n     if(inv===null){put('checks',`Info — not decryptable: a = ${a} is not invertible mod 26; this key destroys information. ${new Set(Array.from({length:26},(_,x)=>mod26(a*x))).size} distinct outputs. Collisions: ${collisions(a).map(xs=>xs.map(x=>alphabet[x]).join(' = ')).join('; ')}.`);}\n-    else {for(const [name,ok,label] of [['admissible',keys.includes(a),'a is admissible'],['inverse',mod26(a*inv)===1,`${a} × ${inv} mod 26 = ${mod26(a*inv)}`],['roundtrip',affineDecrypt(ct,a,b)===text,'round trip preserves the plaintext']] as const){const row=document.createElement('p');row.dataset.check=name;row.dataset.verdict=ok?'pass':'fail';row.className=ok?'affine-ok':'affine-alarm';row.textContent=`${ok?'✓':'⚠'} ${label}`;el('checks').append(row);}}\n+    else {for(const [name,ok,label] of [['admissible',!keys.includes(a),'a is admissible'],['inverse',mod26(a*inv)===1,`${a} × ${inv} mod 26 = ${mod26(a*inv)}`],['roundtrip',affineDecrypt(ct,a,b)===text,'round trip preserves the plaintext']] as const){const row=document.createElement('p');row.dataset.check=name;row.dataset.verdict=ok?'pass':'fail';row.className=ok?'affine-ok':'affine-alarm';row.textContent=`${ok?'✓':'⚠'} ${label}`;el('checks').append(row);}}\n     put('count',`${keys.length} admissible multipliers: ${keys.join(', ')}. ${keys.length} × 26 = ${keys.length*26} keys, one of which leaves the text unchanged. This counts the zero shift; the historical Caesar note below excludes it.`);\n     put('ic',`Plaintext IC ${indexOfCoincidence(text).toFixed(6)}; ciphertext IC ${indexOfCoincidence(ct).toFixed(6)}.${inv===null?' A collision is not a permutation, so IC need not be preserved.':' The same frequency fingerprint survives this letter permutation.'}`);\n     el('map').replaceChildren();for(let x=0;x<26;x++){const cell=document.createElement('span');cell.setAttribute('role','listitem');cell.textContent=`${alphabet[x]} (${x}) → ${alphabet[mod26(a*x+b)]} (${mod26(a*x+b)})`;el('map').append(cell);}\n",
+    "baseline": "c112516cc76ab31ed91c3b81e30db15515f4fdbc8fa33265b6ef1b6d2d4f5a84",
+    "mutant": "1b8269992e893846d38623874ba45eab216ec3286aa66f1bd22f648b9ec6fa8a",
+    "namedTest": "Affine negative claim",
+    "assertionFailure": true,
+    "retries": 0,
+    "restoredGreen": true
+  }
+]
