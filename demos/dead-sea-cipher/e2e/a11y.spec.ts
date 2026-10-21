@@ -86,6 +86,68 @@ const STATES: State[] = [
     },
   },
   {
+    label: 'Affine / card open',
+    drive: async (page) => {
+      await openEra(page, 'caesar');
+      await expect(page.locator('#affine-text')).toBeVisible();
+      await expect(page.locator('#affine-a option')).toHaveCount(25);
+      await expect(page.locator('#affine-b option')).toHaveCount(26);
+      await expect(page.locator('#affine-map [role="listitem"]')).toHaveCount(26);
+      await expect(page.locator('#affine-checks [data-check]')).toHaveCount(3);
+      await expect(page.locator('#affine-ranking')).toBeHidden();
+    },
+  },
+  {
+    label: 'Affine / inadmissible multiplier',
+    drive: async (page) => {
+      await openEra(page, 'caesar');
+      await page.locator('#affine-a').selectOption('2');
+      await expect(page.locator('#affine-a')).toHaveValue('2');
+      await expect(page.locator('#affine-checks')).toBeVisible();
+      await expect(page.locator('#affine-checks')).not.toBeEmpty();
+      await expect(page.locator('#affine-checks [data-check]')).toHaveCount(0);
+      await expect(page.locator('#affine-map [role="listitem"]')).toHaveCount(26);
+    },
+  },
+  {
+    label: 'Affine / full ranking',
+    drive: async (page) => {
+      await openEra(page, 'caesar');
+      await page.locator('#affine-rank').click();
+      await expect(page.locator('#affine-ranking')).toBeVisible();
+      await expect(page.locator('.affine-candidate')).toHaveCount(312);
+      await expect(page.locator('.affine-top')).toHaveCount(3);
+      await expect(page.locator('#affine-verdict')).not.toBeEmpty();
+    },
+  },
+  {
+    label: 'Affine / two-pair NoAffineKey',
+    drive: async (page) => {
+      await openEra(page, 'caesar');
+      await page.locator('#affine-x1').fill('D');
+      await page.locator('#affine-y1').fill('Y');
+      await page.locator('#affine-x2').fill('E');
+      await page.locator('#affine-y2').fill('A');
+      await page.locator('#affine-solve').click();
+      await expect(page.locator('#affine-solver')).toBeVisible();
+      await expect(page.locator('#affine-solver')).not.toBeEmpty();
+      await expect(page.locator('#affine-solver')).toHaveAttribute('data-verdict', 'NoAffineKey');
+    },
+  },
+  {
+    label: 'Affine / negative-claim fixture',
+    drive: async (page) => {
+      await openEra(page, 'caesar');
+      await page.locator('#affine-rank').click();
+      await expect(page.locator('#affine-checks [data-check]')).toHaveCount(3);
+      await expect(page.locator('#affine-checks')).toBeVisible();
+      await expect(page.locator('#affine-ranking')).toBeVisible();
+      await expect(page.locator('.affine-candidate')).toHaveCount(312);
+      await expect(page.locator('#affine-verdict')).toBeVisible();
+      await expect(page.locator('#affine-verdict')).not.toBeEmpty();
+    },
+  },
+  {
     // A full Kasiski run: highlighted repeats, gap brackets, factor rows, the
     // key-length verdict, the recovered key, and the step-by-step report
     // opened through its real <summary>.
@@ -267,6 +329,12 @@ for (const theme of THEMES) {
       await page.setViewportSize(NARROW);
       await settle(page);
       await scan(page, `${theme} / ${state.label} / ${NARROW.width}px`);
+
+      if (state.label.startsWith('Affine /')) {
+        await page.setViewportSize({ width: 320, height: 900 });
+        await settle(page);
+        await scan(page, `${theme} / ${state.label} / 320px`);
+      }
     });
   }
 }
