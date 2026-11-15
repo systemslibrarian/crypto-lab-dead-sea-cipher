@@ -87,7 +87,7 @@ export const ERAS: EraInfo[] = [
   {
     id: 'aes',
     name: 'AES-256-GCM',
-    year: '2001',
+    year: '2001 / 2007',
     tagline: '2,600 years of cryptographic lessons in one algorithm',
     fatalFlaw: 'None known — relies on computational hardness. Quantum computing (Grover\'s algorithm) reduces effective key space to 128 bits, still considered secure.',
     whatItFixed: 'Practical key size, authenticated encryption (integrity + confidentiality), standardized by NIST.',

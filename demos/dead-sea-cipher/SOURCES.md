@@ -37,13 +37,16 @@ Every historical claim in this demo is sourced. This document provides the refer
 - **Gilbert Vernam (1917):** Gilbert S. Vernam, "Cipher Printing Telegraph Systems for Secret Wire and Radio Telegraphic Communications," *Journal of the AIEE*, Vol. 45 (1926), pp. 109–115. Patent filed 1917.
 - **Shannon's proof:** Claude E. Shannon, "Communication Theory of Secrecy Systems," *Bell System Technical Journal*, Vol. 28, No. 4 (October 1949), pp. 656–715. Shannon proved that the one-time pad achieves perfect secrecy (information-theoretic security).
 
-## AES-256-GCM (2000–2001)
+## AES-256-GCM (AES 2001, GCM 2007)
 
 - **AES selection:** NIST announced the selection of Rijndael as the Advanced Encryption Standard on October 2, 2000.
 - **FIPS 197:** "Advanced Encryption Standard (AES)," Federal Information Processing Standards Publication 197, November 26, 2001. National Institute of Standards and Technology (NIST).
   - Available: https://csrc.nist.gov/pubs/fips/197/final
 - **GCM mode:** David A. McGrew and John Viega, "The Galois/Counter Mode of Operation (GCM)," NIST submission, May 2005. Published in NIST SP 800-38D (November 2007).
+  - Available: https://csrc.nist.gov/pubs/sp/800/38/d/final
 - **PBKDF2:** B. Kaliski, "PKCS #5: Password-Based Cryptography Specification Version 2.0," RFC 2898 (September 2000). Updated by RFC 8018 (January 2017).
+
+**Sources reviewed 15 November 2026:** the two NIST publication pages were re-read. FIPS 197 gives "Date Published: November 26, 2001"; SP 800-38D, *Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC*, gives "Date Published: November 2007". The timeline therefore dates AES and GCM separately instead of labelling the final era "AES-256-GCM (2001)".
 
 ## General References
 

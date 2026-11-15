@@ -946,7 +946,7 @@ function buildAESPanel(): string {
   return `
     <h2>AES-256-GCM — ${era.year}</h2>
     <p class="era-tagline">${era.tagline}</p>
-    <p class="why-today">This is the cipher securing your HTTPS connections, disk encryption, and messaging apps right now. It isn't magic — it's the whole arc paying off: counter mode fixes Vigenère's repetition, and an authentication tag fixes the "no integrity" flaw every earlier cipher shared.</p>
+    <p class="why-today">This is the cipher securing your HTTPS connections, disk encryption, and messaging apps right now. It isn't magic — it's the whole arc paying off: counter mode fixes Vigenère's repetition, and an authentication tag fixes the "no integrity" flaw every earlier cipher shared. The two dates are two standards: AES is FIPS 197 (2001), while GCM arrived later as NIST SP 800-38D (2007).</p>
 
     <div class="card">
       <h3>Live AES-256-GCM Encryption</h3>

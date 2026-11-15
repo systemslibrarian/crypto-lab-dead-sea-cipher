@@ -2,7 +2,7 @@
 
 ## What It Is
 
-A browser-based cryptographic history demo that walks the full arc of cryptographic history — from Atbash (~600 BCE) through AES-256-GCM (2001 CE). The Caesar panel also implements the affine cipher, including inverse checks, collisions, all 312 keys and known-letter recovery. Each stage shows why a cipher failed and what the next one fixed, turning the timeline into a story about how secrecy was repeatedly broken and rebuilt.
+A browser-based cryptographic history demo that walks the full arc of cryptographic history — from Atbash (~600 BCE) through AES (FIPS 197, 2001 CE) in GCM mode (NIST SP 800-38D, 2007 CE). The Caesar panel also implements the affine cipher, including inverse checks, collisions, all 312 keys and known-letter recovery. Each stage shows why a cipher failed and what the next one fixed, turning the timeline into a story about how secrecy was repeatedly broken and rebuilt.
 
 ## When to Use It
 
@@ -56,7 +56,7 @@ From `demos/dead-sea-cipher`, run `npm ci`, `npm test`, `npm run build`, and `np
 | Field | Value |
 |-------|-------|
 | Coverage | Atbash → Caesar → Vigenère → OTP → AES-256-GCM |
-| Time span | ~600 BCE to 2001 CE |
+| Time span | ~600 BCE to 2007 CE |
 | Scripture connection | Jeremiah 25:26, 51:1, 51:41 |
 | Live attacks | Caesar brute force, Kasiski, OTP key reuse, AES tamper detection |
 | Educational focus | Why each cipher failed; what the next fixed |

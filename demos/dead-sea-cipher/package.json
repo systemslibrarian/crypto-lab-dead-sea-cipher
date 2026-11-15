@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Interactive demo walking 2,600 years of cryptographic history \u2014 from Atbash (~600 BCE) to AES-256-GCM (2001 CE).",
+  "description": "Interactive demo walking 2,600 years of cryptographic history \u2014 from Atbash (~600 BCE) to AES (2001 CE) in GCM mode (2007 CE).",
   "engines": {
     "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
   },

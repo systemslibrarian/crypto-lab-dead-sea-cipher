@@ -1,6 +1,7 @@
 /**
  * AES-256-GCM — Advanced Encryption Standard with Galois/Counter Mode.
  * Selected by NIST: October 2000. Published as FIPS 197: November 26, 2001.
+ * GCM is a separate NIST recommendation: SP 800-38D, November 2007.
  * Uses Web Crypto API (crypto.subtle) — no external libraries.
  * Key derivation: PBKDF2-SHA256, 200,000 iterations.
  */
