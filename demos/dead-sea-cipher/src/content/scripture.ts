@@ -6,25 +6,28 @@
 export const SCRIPTURE_REFERENCES = {
   jeremiah_25_26: {
     reference: 'Jeremiah 25:26',
-    english: 'And the king of Sheshach shall drink after them.',
+    translation: 'ESV',
+    english: 'And after them the king of Babylon shall drink.',
     encoded_word: 'Sheshach',
     decoded_word: 'Babel',
     hebrew_encoded: 'ששך',
     hebrew_decoded: 'בבל',
-    note: 'The earliest documented use of a cipher in human history.',
+    note: 'The ESV renders the name as "Babylon" and gives the Hebrew, ששך (Sheshach), in a footnote. Atbash turns ששך into בבל (Babel) — the earliest documented use of a cipher in human history.',
   },
   jeremiah_51_41: {
     reference: 'Jeremiah 51:41',
-    english: 'How Sheshach is taken! And the praise of the whole earth seized!',
+    translation: 'ESV',
+    english: 'How Babylon is taken, the praise of the whole earth seized!',
     encoded_word: 'Sheshach',
     decoded_word: 'Babel',
     hebrew_encoded: 'ששך',
     hebrew_decoded: 'בבל',
-    note: 'A second use of Atbash in Jeremiah, encoding the same enemy.',
+    note: 'Here too the Hebrew reads ששך (Sheshach), footnoted by the ESV — a second use of Atbash in Jeremiah, encoding the same enemy.',
   },
   lev_kamai: {
     reference: 'Jeremiah 51:1',
-    english: 'Thus says the LORD: Behold, I will raise up against Babylon... a destroying wind against the inhabitants of Lev Kamai.',
+    translation: 'ESV',
+    english: 'Thus says the LORD: Behold, I will stir up the spirit of a destroyer against Babylon, against the inhabitants of Leb-kamai.',
     encoded_word: 'Lev Kamai',
     decoded_word: 'Chaldea',
     hebrew_encoded: 'לב קמי',
@@ -33,6 +36,7 @@ export const SCRIPTURE_REFERENCES = {
   },
   closing: {
     reference: '1 Corinthians 10:31',
+    translation: 'NIV',
     english: 'So whether you eat or drink or whatever you do, do it all for the glory of God.',
   },
 } as const;

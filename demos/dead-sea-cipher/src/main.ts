@@ -114,7 +114,7 @@ function buildAtbashPanel(): string {
     <div class="card scripture-card">
       <h3>Scripture: ${sr.jeremiah_25_26.reference}</h3>
       <p class="scripture-text">"${sr.jeremiah_25_26.english}"</p>
-      <span class="scripture-ref">— ${sr.jeremiah_25_26.reference}</span>
+      <span class="scripture-ref">— ${sr.jeremiah_25_26.reference} (${sr.jeremiah_25_26.translation})</span>
       <div style="margin-top:0.75rem">
         <span>Encoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.jeremiah_25_26.hebrew_encoded}</span></span>
         <span style="margin:0 0.5rem">→</span>
@@ -127,7 +127,7 @@ function buildAtbashPanel(): string {
     <div class="card scripture-card">
       <h3>Scripture: ${sr.jeremiah_51_41.reference}</h3>
       <p class="scripture-text">"${sr.jeremiah_51_41.english}"</p>
-      <span class="scripture-ref">— ${sr.jeremiah_51_41.reference}</span>
+      <span class="scripture-ref">— ${sr.jeremiah_51_41.reference} (${sr.jeremiah_51_41.translation})</span>
       <div style="margin-top:0.75rem">
         <span>Encoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.jeremiah_51_41.hebrew_encoded}</span></span>
         <span style="margin:0 0.5rem">→</span>
@@ -139,7 +139,7 @@ function buildAtbashPanel(): string {
     <div class="card scripture-card">
       <h3>Scripture: ${sr.lev_kamai.reference}</h3>
       <p class="scripture-text">"${sr.lev_kamai.english}"</p>
-      <span class="scripture-ref">— ${sr.lev_kamai.reference}</span>
+      <span class="scripture-ref">— ${sr.lev_kamai.reference} (${sr.lev_kamai.translation})</span>
       <div style="margin-top:0.75rem">
         <span>Encoded: </span><span class="hebrew-display"><span class="hebrew" lang="he">${sr.lev_kamai.hebrew_encoded}</span></span>
         <span style="margin:0 0.5rem">→</span>
@@ -1329,7 +1329,7 @@ function buildFullArcPanel(): string {
 
     <div class="card scripture-card">
       <p class="scripture-text">"${sr.jeremiah_25_26.english}"</p>
-      <span class="scripture-ref">— ${sr.jeremiah_25_26.reference}</span>
+      <span class="scripture-ref">— ${sr.jeremiah_25_26.reference} (${sr.jeremiah_25_26.translation})</span>
     </div>
 
     <div class="arc-timeline">
@@ -1350,7 +1350,7 @@ function buildFullArcPanel(): string {
 
     <div class="card scripture-card" style="margin-top:2rem;text-align:center">
       <p class="scripture-text">"${sr.closing.english}"</p>
-      <span class="scripture-ref">— ${sr.closing.reference}</span>
+      <span class="scripture-ref">— ${sr.closing.reference} (${sr.closing.translation})</span>
     </div>
   `;
 }

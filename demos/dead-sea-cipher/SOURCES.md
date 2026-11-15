@@ -56,10 +56,21 @@ Every historical claim in this demo is sourced. This document provides the refer
 
 ## Scripture References
 
-- Jeremiah 25:26 (ESV): "and the king of Sheshach shall drink after them."
+- Jeremiah 25:26 (ESV): "And after them the king of Babylon shall drink."
 - Jeremiah 51:1 (ESV): "Thus says the LORD: Behold, I will stir up the spirit of a destroyer against Babylon, against the inhabitants of Leb-kamai."
-- Jeremiah 51:41 (ESV): "How Sheshach is taken, the praise of the whole earth seized!"
+- Jeremiah 51:41 (ESV): "How Babylon is taken, the praise of the whole earth seized!"
 - 1 Corinthians 10:31 (NIV): "So whether you eat or drink or whatever you do, do it all for the glory of God."
+
+All three Jeremiah verses are quoted from one translation, the ESV, and the page now names it on each
+scripture card. In 25:26 and 51:41 the Hebrew reads ששך (Sheshach), which the ESV renders as "Babylon"
+and gives in a footnote ("Hebrew *Sheshach*, a code name for Babylon"); in 51:1 the ESV keeps the Hebrew
+Leb-kamai and footnotes it as a code name for Chaldea. The Atbash step the demo teaches is therefore in
+the Hebrew, not in the English rendering.
+
+**Scripture checked 15 November 2026:** Jeremiah 25:26, 51:1 and 51:41 were re-read in both the ESV and
+the KJV on BibleGateway, and 1 Corinthians 10:31 in the NIV. Two earlier quotations were wrong: 25:26 was
+labelled ESV but carried the KJV wording ("and the king of Sheshach shall drink after them"), and 51:41
+was the ESV sentence with "Sheshach" put in place of "Babylon". Both now give the ESV text.
 
 ## Affine cipher
 
