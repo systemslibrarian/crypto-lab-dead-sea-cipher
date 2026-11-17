@@ -36,7 +36,7 @@
   <text x="92" y="312" fill="#9090a8" font-size="34" font-style="italic" font-family="Georgia, serif">The arc of cryptographic history</text>
 
   <!-- Arc subtitle -->
-  <text x="92" y="392" fill="#c4956a" font-size="30" letter-spacing="3" font-family="'Inter', system-ui, sans-serif">ATBASH · ~600 BCE  →  AES-256-GCM · 2001 CE</text>
+  <text x="92" y="392" fill="#c4956a" font-size="26" letter-spacing="2" font-family="'Inter', system-ui, sans-serif">ATBASH · ~600 BCE  →  AES-256-GCM · AES 2001, GCM 2007</text>
 
   <!-- Timeline ticks -->
   <g font-family="'Inter', system-ui, sans-serif">
