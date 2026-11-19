@@ -201,8 +201,9 @@ to the same frequency attack."
 
 1. An affine cipher over the 22-letter Hebrew alphabet beside the lab's Hebrew Atbash. A source
    is needed for any historical claim. Not built.
-2. The Hill cipher as the matrix generalisation. Paar's 1st edition does not cover it, so it
-   needs its own source. Not built.
+2. The matrix generalisation of the affine map (each ciphertext letter a linear combination of
+   several plaintext letters, modulo 26). Paar's 1st edition does not cover it, so it needs its
+   own source. Not built.
 
 ## Acceptance checks
 
