@@ -1,5 +1,5 @@
 /**
- * Atbash cipher — the earliest known cipher (~600 BCE).
+ * Atbash cipher — a Hebrew substitution cipher attested in Jeremiah.
  * Used in the Hebrew Bible (Jeremiah 25:26, 51:1, 51:41).
  * Each letter maps to its mirror in the alphabet: A↔Z, B↔Y, etc.
  */
@@ -107,8 +107,10 @@ export function atbashHebrew(text: string): string {
     if (idx !== -1) {
       let mapped = HEBREW_SCRIPT_REVERSED[idx];
       // Apply final form if this is the last Hebrew letter before a non-Hebrew char or end
-      const isLast = i === chars.length - 1 ||
-        (HEBREW_SCRIPT.indexOf(chars[i + 1]) === -1 && !FINAL_TO_BASE[chars[i + 1]]);
+      let next = i + 1;
+      while (next < chars.length && /\p{Mark}/u.test(chars[next])) next++;
+      const following = chars[next];
+      const isLast = !following || !HEBREW_SCRIPT.includes(FINAL_TO_BASE[following] ?? following);
       if (isLast && BASE_TO_FINAL[mapped]) {
         mapped = BASE_TO_FINAL[mapped];
       }

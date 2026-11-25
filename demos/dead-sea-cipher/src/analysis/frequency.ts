@@ -46,19 +46,19 @@ export function letterFrequency(text: string): FrequencyResult[] {
   return results;
 }
 
-export function indexOfCoincidence(text: string): number {
+export function indexOfCoincidence(text: string): number | null {
   // IC ≈ 0.065 for English, ≈ 0.038 for random
   const counts: number[] = new Array(26).fill(0);
   let total = 0;
 
-  for (const ch of text.toUpperCase()) {
-    if (ch >= 'A' && ch <= 'Z') {
-      counts[ch.charCodeAt(0) - 65]++;
-      total++;
-    }
+  // Sample the 26-letter alphabet of the exhibit. Unicode case conversion can
+  // expand a single unrelated character into several ASCII letters.
+  for (const ch of text.match(/[A-Za-z]/g) ?? []) {
+    counts[ch.toUpperCase().charCodeAt(0) - 65]++;
+    total++;
   }
 
-  if (total <= 1) return 0;
+  if (total < 2) return null;
 
   let sum = 0;
   for (let i = 0; i < 26; i++) {

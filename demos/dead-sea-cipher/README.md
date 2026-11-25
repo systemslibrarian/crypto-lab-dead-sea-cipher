@@ -19,7 +19,7 @@ Plus a **Full Arc** synthesis tab tying the five fatal flaws and their fixes int
 
 ## When to Use It
 
-- **Teaching cryptographic history end-to-end** — the demo walks from the oldest known cipher (Jeremiah's Atbash) to modern authenticated encryption in a single interactive timeline.
+- **Teaching cryptographic history end-to-end** — the demo walks from the Hebrew Atbash examples in Jeremiah to modern authenticated encryption in a single interactive timeline.
 - **Demonstrating why each classical cipher fails** — every panel includes a working attack so students can see the vulnerability firsthand rather than read about it.
 - **Showing AES-256-GCM authenticated encryption in the browser** — uses the Web Crypto API directly, with PBKDF2 key derivation, a random IV, and GCM integrity verification.
 - **Exploring the Hebrew Bible's use of Atbash** — the demo includes original Hebrew text rendering for Jeremiah 25:26, 51:1, and 51:41 with both Latin and Hebrew Atbash encoders.

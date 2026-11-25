@@ -12,7 +12,7 @@ export const SCRIPTURE_REFERENCES = {
     decoded_word: 'Babel',
     hebrew_encoded: 'ששך',
     hebrew_decoded: 'בבל',
-    note: 'The ESV renders the name as "Babylon" and gives the Hebrew, ששך (Sheshach), in a footnote. Atbash turns ששך into בבל (Babel) — the earliest documented use of a cipher in human history.',
+    note: 'The ESV renders the name as "Babylon" and gives the Hebrew, ששך (Sheshach), in a footnote. Atbash turns ששך into בבל (Babel) in this passage.',
   },
   jeremiah_51_41: {
     reference: 'Jeremiah 51:41',
@@ -57,8 +57,8 @@ export const ERAS: EraInfo[] = [
     name: 'Atbash',
     year: '~600 BCE',
     tagline: 'The cipher hidden in Scripture',
-    fatalFlaw: 'Zero key space — only one possible mapping. Anyone who knows the system can decode it instantly.',
-    whatItFixed: 'Concealed names of enemies in sacred text — the first known use of encryption.',
+    fatalFlaw: 'One fixed mapping gives zero bits of key choice. Anyone who knows the system can decode it instantly.',
+    whatItFixed: 'Used a fixed substitution to represent a name in the Book of Jeremiah.',
     whatNextFixed: 'Caesar introduced a variable shift, creating 25 possible keys instead of 1.',
   },
   {
@@ -107,7 +107,7 @@ AES-256-GCM doesn't exist in isolation. It is the living summary of 2,600 years 
 
 export const LESSONS_MAP = [
   {
-    flaw: 'Atbash: Zero key space',
+    flaw: 'Atbash: One fixed mapping',
     aesSolution: 'AES uses a 256-bit key: 2²⁵⁶ possible keys (~1.15 × 10⁷⁷)',
   },
   {

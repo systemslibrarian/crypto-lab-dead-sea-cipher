@@ -174,9 +174,12 @@ export function initAffine(): void {
       'count',
       `${keys.length} admissible multipliers: ${keys.join(', ')}. ${keys.length} × 26 = ${count} keys, one of which (a = 1, b = 0) leaves the text unchanged. The Fatal Flaw below counts Caesar's keys as 25 because it leaves that identity out; counted the same way, affine has ${count} − 1 = ${count - 1}.`,
     );
+    const ip = indexOfCoincidence(text);
+    const ic = indexOfCoincidence(ct);
     put(
       'ic',
-      `Plaintext IC ${indexOfCoincidence(text).toFixed(6)}; ciphertext IC ${indexOfCoincidence(ct).toFixed(6)}.${inv === null ? ' A collision is not a permutation, so IC need not be preserved.' : ' The same frequency fingerprint survives this letter permutation.'}`,
+      ip === null || ic === null ? 'IC requires at least two letters from A to Z.' :
+        `Plaintext IC ${ip.toFixed(6)}; ciphertext IC ${ic.toFixed(6)}.${inv === null ? ' A collision is not a permutation, so IC need not be preserved.' : ' The same frequency fingerprint survives this letter permutation.'}`,
     );
     el('map').replaceChildren();
     for (let x = 0; x < 26; x++) {

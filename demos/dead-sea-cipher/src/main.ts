@@ -178,6 +178,7 @@ function buildAtbashPanel(): string {
       <div class="cipher-io" style="margin-top:0.5rem">
         <div class="io-group">
           <label for="atbash-hebrew-input">Hebrew Input</label>
+          <p class="note">The encoder substitutes consonants and keeps vowel and cantillation marks as typed. It uses the usual final forms at word endings.</p>
           <textarea id="atbash-hebrew-input" dir="rtl" lang="he" class="hebrew" placeholder="Type Hebrew here..." style="font-size:1.2rem">בבל</textarea>
         </div>
         <div class="io-group">
@@ -195,7 +196,7 @@ function buildAtbashPanel(): string {
         <div class="ic-cell"><span class="ic-cell-label">Atbash IC</span><span class="ic-cell-value" id="atbash-ic-cipher">—</span></div>
         <div class="ic-cell"><span class="ic-cell-label">Verdict</span><span class="ic-cell-value" id="atbash-ic-verdict">—</span></div>
       </div>
-      <p class="note" style="margin-top:0.5rem">Reference: English ≈ 0.065, random noise ≈ 0.038. An Atbash ciphertext that started as English stays near 0.065 — it leaks.</p>
+      <p class="note" style="margin-top:0.5rem">The index measures the chance that two different positions drawn from the sample hold the same letter. It takes at least two A–Z letters. If none repeat, the value is zero. About 0.065 for English and 1/26 for independent uniform letters are reference values for long samples.</p>
     </div>
 
     <div class="card flaw-card">
@@ -225,13 +226,13 @@ function initAtbash(): void {
     output.textContent = ct;
     const ip = indexOfCoincidence(input.value);
     const ic = indexOfCoincidence(ct);
-    icPlain.textContent = ip > 0 ? ip.toFixed(4) : '—';
-    icCipher.textContent = ic > 0 ? ic.toFixed(4) : '—';
+    icPlain.textContent = ip?.toFixed(4) ?? '—';
+    icCipher.textContent = ic?.toFixed(4) ?? '—';
     // The two ICs are mathematically equal for any bijective letter map.
-    if (ip > 0 && Math.abs(ip - ic) < 1e-9) {
-      icVerdict.textContent = 'IDENTICAL — leaks';
+    if (ip !== null && ic !== null && Math.abs(ip - ic) < 1e-9) {
+      icVerdict.textContent = ip === 0 ? 'IDENTICAL — no repeats' : 'IDENTICAL — leaks';
       icVerdict.className = 'ic-cell-value leak';
-    } else if (ip > 0) {
+    } else if (ip !== null && ic !== null) {
       icVerdict.textContent = 'differs';
       icVerdict.className = 'ic-cell-value';
     } else {
@@ -243,13 +244,17 @@ function initAtbash(): void {
   input.addEventListener('input', updateLatin);
   updateLatin();
 
-  hebrewInput.addEventListener('input', () => {
+  function updateHebrew(): void {
     hebrewOutput.textContent = atbashHebrew(hebrewInput.value);
-  });
+  }
+  hebrewInput.addEventListener('input', updateHebrew);
+  updateHebrew();
 
   loadBtn.addEventListener('click', () => {
     input.value = 'BABEL';
+    hebrewInput.value = SCRIPTURE_REFERENCES.jeremiah_25_26.hebrew_decoded;
     updateLatin();
+    updateHebrew();
   });
 }
 
@@ -393,7 +398,7 @@ function initCaesar(): void {
     chart.classList.remove('aligned');
     barsRow().forEach(b => { b.style.transform = ''; b.classList.remove('is-peak'); });
     updateFreqChart('caesar-freq-chart', ct);
-    icDisplay.textContent = indexOfCoincidence(ct).toFixed(4);
+    icDisplay.textContent = indexOfCoincidence(ct)?.toFixed(4) ?? '—';
     // Retire the previous break. Its "Winner: shift N" verdict and ranked
     // candidate list were computed from the OLD ciphertext; leaving them up
     // beside a new one had the page announcing a key that no longer applied.
@@ -493,7 +498,7 @@ function buildVigenerePanel(): string {
           <span class="ic-meter-needle" id="vig-ic-needle" style="left:100%"></span>
         </div>
       </div>
-      <p class="note" id="vig-ic-story" style="margin-top:0.4rem">Frequency leakage meter: the needle shows where the ciphertext's IC sits between random noise (0.038) and plain English (0.065). Lengthen the keyword and watch the needle slide left toward random — each key letter spreads one plaintext letter across more ciphertext positions, flattening the fingerprint.</p>
+      <p class="note" id="vig-ic-story" style="margin-top:0.4rem">Frequency leakage meter: the needle shows where the ciphertext's IC sits between random noise (0.038) and plain English (0.065). Compare different keywords at the same plaintext. A longer keyword can repeat the same shifts, so it need not lower the measured index.</p>
       <p class="note"><strong>Attribution:</strong> Actually invented by Giovan Battista Bellaso in 1553 (<em>La Cifra del. Sig. Giovan Battista Bellaso</em>). Blaise de Vigenère described a different autokey cipher. The misattribution persists to this day.</p>
     </div>
 
@@ -559,12 +564,15 @@ function initVigenere(): void {
     try {
       const ct = vigenereEncrypt(input.value, keyInput.value);
       output.textContent = ct;
-      icPlain.textContent = indexOfCoincidence(input.value).toFixed(4);
+      icPlain.textContent = indexOfCoincidence(input.value)?.toFixed(4) ?? '—';
       const icC = indexOfCoincidence(ct);
-      icCipher.textContent = icC.toFixed(4);
+      icCipher.textContent = icC?.toFixed(4) ?? '—';
+      icNeedle.hidden = icC === null;
       // Map IC in [0.038, 0.065] onto the meter [0%, 100%], clamped.
-      const pct = Math.max(0, Math.min(100, ((icC - 0.038) / (0.065 - 0.038)) * 100));
-      icNeedle.style.left = `${pct}%`;
+      if (icC !== null) {
+        const pct = Math.max(0, Math.min(100, ((icC - 0.038) / (0.065 - 0.038)) * 100));
+        icNeedle.style.left = `${pct}%`;
+      }
     } catch {
       output.textContent = '(enter a valid key)';
       // There is no ciphertext, so there is no leakage reading either. Leaving
@@ -572,7 +580,7 @@ function initVigenere(): void {
       // was simultaneously refusing to produce.
       icPlain.textContent = '—';
       icCipher.textContent = '—';
-      icNeedle.style.left = '100%';
+      icNeedle.hidden = true;
     }
     clearKasiski();
   }

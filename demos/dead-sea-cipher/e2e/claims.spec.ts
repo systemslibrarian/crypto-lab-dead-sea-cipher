@@ -1328,3 +1328,48 @@ test('Affine hidden regions paint no pixels before or after retirement', async (
       ),
   ).toBe(true);
 });
+
+test('Atbash measures zero coincidences and keeps Hebrew word boundaries through pointing', async ({ page }) => {
+  await page.goto('.');
+  const input = page.locator('#atbash-input');
+  for (const [text, value] of [['AB', '0.0000'], ['AA', '1.0000'], ['aA!b🦊', '0.3333'], ['ßＡ', '—'], ['A', '—'], ['', '—']]) {
+    await input.fill(text);
+    await expect(page.locator('#atbash-ic-plain')).toHaveText(value);
+    await expect(page.locator('#atbash-ic-cipher')).toHaveText(value);
+  }
+  const hebrew = page.locator('#atbash-hebrew-input');
+  const out = page.locator('#atbash-hebrew-output');
+  // Each letter on the left maps to one of the five letters with a final form.
+  for (const [letter, medial, final] of [['ל','כ','ך'], ['י','מ','ם'], ['ט','נ','ן'], ['ו','פ','ף'], ['ה','צ','ץ']]) {
+    const marks = '\u05b7\u0591';
+    await hebrew.fill(letter + marks + 'ב־' + letter + marks);
+    await expect(out).toHaveText(medial + marks + 'ש־' + final + marks);
+  }
+  await page.locator('#atbash-load-jeremiah').click();
+  await expect(input).toHaveValue('BABEL');
+  await expect(hebrew).toHaveValue('בבל');
+  await expect(out).toHaveText('ששך');
+});
+
+test('coincidence displays distinguish an unavailable pair from a measured zero', async ({ page }) => {
+  await page.goto('.');
+  await page.locator('#tab-caesar').click();
+  await page.locator('#caesar-input').fill('A');
+  await expect(page.locator('#caesar-ic')).toHaveText('—');
+  await page.locator('#caesar-input').fill('AB');
+  await expect(page.locator('#caesar-ic')).toHaveText('0.0000');
+  await page.locator('#affine-text').fill('A');
+  await expect(page.locator('#affine-ic')).toContainText('at least two letters');
+  await page.locator('#affine-text').fill('AB');
+  await expect(page.locator('#affine-ic')).toContainText('Plaintext IC 0.000000');
+  await page.locator('#tab-vigenere').click();
+  await page.locator('#vig-key').fill('A');
+  await page.locator('#vig-input').fill('A');
+  await expect(page.locator('#vig-ic-cipher')).toHaveText('—');
+  await expect(page.locator('#vig-ic-needle')).toBeHidden();
+  await page.locator('#vig-input').fill('AB');
+  await expect(page.locator('#vig-ic-cipher')).toHaveText('0.0000');
+  await expect(page.locator('#vig-ic-needle')).toBeVisible();
+  await page.locator('#vig-key').fill('');
+  await expect(page.locator('#vig-ic-needle')).toBeHidden();
+});
